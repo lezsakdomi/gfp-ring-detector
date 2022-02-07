@@ -225,6 +225,8 @@ if interactive:
 else:
     from skimage.io import imsave
     from skimage.util import img_as_ubyte
+    stats[stats > 1] = 1
+    stats[stats < 0] = 0
     imsave(folder + '/stats.tif', img_as_ubyte(stats))
     # imsave(folder + '/composite.tif', composite)
 
