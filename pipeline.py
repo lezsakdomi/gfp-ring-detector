@@ -129,6 +129,7 @@ def hough(DsRed, GFP):
 
 
 @step
+@skip
 def grayscale_mask(DsRed, GFP):
     GFP = np.sqrt(GFP * DsRed)
     return DsRed, GFP
@@ -215,8 +216,8 @@ if interactive:
                         result.append(np.array([t, 0, 0, coord[0], coord[1]]))
             return result
 
-        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.5, False), 1)
-        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.5, True), 2)
+        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.35, False), 1)
+        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.35, True), 2)
         jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
         jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
         return [stats]
