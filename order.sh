@@ -1,9 +1,9 @@
 STREAM="$1"
 
-mkdir ordered || rm ordered/*.tif
+mkdir ordered || rm ordered/*.tif || :
 
 if [ -z "$STREAM" ]; then
-  files="$(find "képek/" -name "stats.txt")"
+  files="$(find "képek/" -name "stats.txt" -newer "képek/2021-07-15_GlueRab7_ctrl_-2h/GlueRab7_ctrl_-2h-0018.tif_Files")"
   count="$(echo "$files" | wc -l)"
 else
   count="?"
@@ -29,8 +29,9 @@ fi | while IFS= read file; do
     echo "Warning: $file is invalid - skipping"
     continue
   fi
-  linkname="ordered/$(cat "$file" | head -n1)-$(basename "$folder").tif"
-   ln -s "$folder/composite.tif" "$linkname"
+  linkname="ordered/$(cat "$file" | head -n1)-$(basename "$folder")"
+   ln -s "$folder/composite.tif" "$linkname.tif"
+   ln -s "$folder" "$linkname"
   # convert "$folder"/*_c?.tif -combine "$linkname"
 done
 echo
