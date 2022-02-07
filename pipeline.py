@@ -7,9 +7,9 @@ import numpy as np
 if len(sys.argv) > 1:
     fname_template = sys.argv[1]
 else:
-    fname_template = "kepek/Új_Ub_ab/08_11_overnight_PBTXDoc/Uj_Ub_ab_2_-6h-0039.tif_Files/Uj_Ub_ab_2_-6h-0039_c{}.tif"
+    # fname_template = "kepek/Új_Ub_ab/08_11_overnight_PBTXDoc/Uj_Ub_ab_2_-6h-0039.tif_Files/Uj_Ub_ab_2_-6h-0039_c{}.tif"
     # fname_template = "mCD8-GFP_GlueRed_-6h-0023_0_Z3_C{}_T0.tiff"
-    # fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
+    fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
 
 if len(sys.argv) > 2:
     folder = sys.argv[2]
@@ -17,6 +17,7 @@ if len(sys.argv) > 2:
 interactive = len(sys.argv) < 3
 if interactive:
     print(f"Usage: {sys.argv[0]} input_template [output_template]", file=sys.stderr)
+    matplotlib.use('QtAgg')
     # noinspection PyUnresolvedReferences
     import NanoImagingPack
     # noinspection PyUnresolvedReferences
@@ -97,10 +98,12 @@ def circlize(DsRed, GFP):
 @step
 def binarize(DsRed, GFP):
     from skimage.filters.rank import percentile
-    from skimage.morphology import disk
+    from skimage.morphology import disk, binary_opening
+    from skimage.util import img_as_ubyte, img_as_float
     DsRed_bin = DsRed > np.average(DsRed)
-    GFP_th = percentile(GFP, disk(20), p0=0.25).astype('float') / 256 + 0.05
+    GFP_th = img_as_float(percentile(GFP, img_as_ubyte(disk(20)), p0=0.75))
     GFP_bin = GFP > GFP_th
+    # GFP_bin[binary_opening(GFP_bin)] = False
     DsRed[~DsRed_bin] = 0
     GFP[~GFP_bin] = 0
     # GFP = GFP_th
@@ -140,7 +143,7 @@ def calc(DsRed, GFP):
     print(ratio)
     print(pixel_ratio)
     print(stat_ratio)
-    stats = (np.dstack([DsRed, GFP, stats]) * 256).astype('uint8')
+    stats = np.dstack([DsRed, GFP, stats])
     return DsRed, GFP
 
 
@@ -162,9 +165,10 @@ if interactive:
     # @skip
     def visual_calc(DsRed, GFP):
         # ratio = np.divide(GFP, DsRed, where=DsRed != 0)
-        ratio = GFP * 2 - DsRed
+        ratio = GFP * 1.5 - DsRed
         ratio[ratio < 0] = 0
         print(f"Ratio: {round(np.average(ratio) * 10000) / 100}%", file=sys.stderr)
+        # ratio = ratio * np.nanmedian(1 / ratio) / 2
         return ratio, ratio
 
 
@@ -216,7 +220,8 @@ if interactive:
     
     print("done")
 else:
-    from skimage import io
-    io.imsave(folder + '/stats.tif', stats)
-    # io.imsave(folder + '/composite.tif', composite)
+    from skimage.io import imsave
+    from skimage.util import img_as_ubyte
+    imsave(folder + '/stats.tif', img_as_ubyte(stats))
+    # imsave(folder + '/composite.tif', composite)
 
