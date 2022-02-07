@@ -51,7 +51,8 @@ def step(func):
     if img4 is None:
         img4 = [[] for _ in last]
     for c in range(len(last)):
-        img = last[c]
+        img = last[c].copy()
+        # img[np.isnan(img)] = 0
         images5.append([img])
         img = img / np.max(img)
         img4[c].append(img)
@@ -89,6 +90,8 @@ def clean(DsRed, GFP):
 @step
 def circlize(DsRed, GFP):
     from skimage.morphology import erosion, dilation, disk
+    from skimage.filters import threshold_local
+    GFP[erosion(DsRed, disk(2)) > threshold_local(erosion(DsRed, disk(2)), 19, 'median')] = np.nan
     DsRed = dilation(DsRed, disk(3)) - erosion(DsRed, disk(1))
     return DsRed, GFP
 
