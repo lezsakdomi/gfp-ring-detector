@@ -1,6 +1,6 @@
 STREAM="$1"
 
-mkdir ordered || rm ordered/*.tif || :
+mkdir ordered || rm ordered/* || :
 
 if [ -z "$STREAM" ]; then
   files="$(find "képek/" -name "stats.txt" -newer "képek/2021-07-15_GlueRab7_ctrl_-2h/GlueRab7_ctrl_-2h-0018.tif_Files")"
