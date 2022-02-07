@@ -152,8 +152,9 @@ if interactive:
     # @skip
     def blur(DsRed, GFP):
         from skimage.filters import gaussian
-        DsRed = gaussian(DsRed, 10)
-        GFP = gaussian(GFP, 10)
+        sigma = 15
+        DsRed = gaussian(DsRed, sigma)
+        GFP = gaussian(GFP, sigma)
         return DsRed, GFP
 
 
