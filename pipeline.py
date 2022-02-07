@@ -169,8 +169,52 @@ if interactive:
 
 
     from NanoImagingPack import v5
-    v5(np.array(img5), multicol=True)
+    viewer = v5(np.array(img5), multicol=True)
     # note: using img4 instead of img5 is a good idea
+    viewer.ProcessKeys('..T')
+
+    @step
+    def find_centers():
+        from skimage.feature import peak_local_max
+        import javabridge as jb
+        my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
+        myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
+        jb.set_field(my3DData, 'ConnectionShown', 'Z', False)
+
+        def f(img, *kargs):
+            coords = peak_local_max(img, min_distance=15, indices=True)
+            result = []
+            mask = np.ones_like(img) > 0
+            while len(kargs) > 2:
+                mask_img, th, invert_th = kargs[0:3]
+                kargs = kargs[3:]
+
+                from skimage.filters.rank import maximum
+                from skimage.morphology import disk
+                from skimage.util import img_as_ubyte, img_as_float
+                # NanoImagingPack.view(mask_img)
+                mask_img = np.minimum(np.maximum(mask_img,
+                                                 np.zeros_like(stats[:,:,0])),
+                                      np.ones_like(stats[:,:,0]))
+                mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
+                bin = mask_img > th
+                if invert_th:
+                    bin = ~bin
+                mask[~bin] = False
+
+            for coord in coords:
+                if mask[coord[0], coord[1]]:
+                    for t in range(step_cnt):
+                        result.append(np.array([t, 0, 0, coord[0], coord[1]]))
+            return result
+
+        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.5, False), 1)
+        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.5, True), 2)
+        jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
+        jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
+        return [stats]
+    
+    print("done")
 else:
     from skimage import io
     io.imsave(folder + '/stats.tif', stats)
