@@ -7,8 +7,6 @@ import numpy as np
 if len(sys.argv) > 1:
     fname_template = sys.argv[1]
 else:
-    # fname_template = "kepek/Új_Ub_ab/08_11_overnight_PBTXDoc/Uj_Ub_ab_2_-6h-0039.tif_Files/Uj_Ub_ab_2_-6h-0039_c{}.tif"
-    # fname_template = "mCD8-GFP_GlueRed_-6h-0023_0_Z3_C{}_T0.tiff"
     fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
 
 if len(sys.argv) > 2:
@@ -25,34 +23,43 @@ if interactive:
     import bioformats
 
 
-def chread(c):
+# helper function for reading a specified channel as numpy array (image)
+def chread(chnum):
     from skimage.io import imread
-    fname = fname_template.format(c)
+    fname = fname_template.format(chnum)
     img = imread(fname)
     return img
 
 
-last = []
+# Current DsRed, GFP and DAPI images
+current = []
+
+# Debugging: 5D image where each step creates a new slice in the T (time) dimension
 img5 = []
+
+# Debugging: 4D image where each step creates a new slice in the Z dimension
 img4 = None
+
 step_cnt = 0
 
 
+# helper function for performing steps in the pipeline
+# If a function is decorated with @step, it's performed right away
 def step(func):
     from inspect import signature
     global step_cnt, img5, img4
     print(f"Step {step_cnt}: {func.__name__} {signature(func)}")
     params = signature(func).parameters
-    result = func(*[last[c].copy() if interactive else last[c] for c in range(len(params))])
+    result = func(*[current[c].copy() if interactive else current[c] for c in range(len(params))])
     step_cnt += 1
     for c in range(len(result)):
-        last[c] = result[c]
+        current[c] = result[c]
 
     images5 = []
     if img4 is None:
-        img4 = [[] for _ in last]
-    for c in range(len(last)):
-        img = last[c].copy()
+        img4 = [[] for _ in current]
+    for c in range(len(current)):
+        img = current[c].copy()
         # img[np.isnan(img)] = 0
         images5.append([img])
         img = img / np.max(img)
@@ -60,112 +67,143 @@ def step(func):
     img5.append(images5)
 
 
-def skip(func):
-    f = lambda: ()
-    f.__name__ = f"skipped ({func.__name__})"
-    return f
-
-
 @step
 def load():
-    global last, composite
-    last = [chread(c) for c in range(2)]
-    # composite = np.dstack(last)
-    return last
+    global current
+
+    DsRed = chread(0)
+    GFP = chread(1)
+    DAPI = chread(2)
+    current = [DsRed, GFP, DAPI]
+
+    return DsRed, GFP, DAPI
 
 
 @step
 def clean(DsRed, GFP):
     from skimage.filters import gaussian
-    from skimage.morphology import dilation
-    from skimage.exposure import equalize_adapthist
+
     DsRed = gaussian(DsRed, 1)
     GFP = gaussian(GFP, 1)
-    # TODO instead of equalize_adapthist, scale each 50x50px frame to its maximum to its lowest 25% percentile
-    # GFP = equalize_adapthist(GFP)
-    # ... or using local thresholding
-    # GFP = dilation(GFP)
+
     return DsRed, GFP
 
 
 @step
+# Extracting circular features - converting disks to circles
 def circlize(DsRed, GFP):
     from skimage.morphology import erosion, dilation, disk
     from skimage.filters import threshold_local
+
+    # Regions in GFP under granules can't be considered meaningful, masking them out to NaN
     GFP[erosion(DsRed, disk(2)) > threshold_local(erosion(DsRed, disk(2)), 19, 'median')] = np.nan
+
+    # Extracting the granule membranes
     DsRed = dilation(DsRed, disk(3)) - erosion(DsRed, disk(1))
+
     return DsRed, GFP
 
 
 # TODO skip this step for more accuracy
 #      needs replacing hough_circle with custom algo
 @step
+# Converting grayscale images to binary images, essentially thresholding
+# Instead of returning True/False values, returns an image, where black means False and the original value means True
 def binarize(DsRed, GFP):
     from skimage.filters.rank import percentile
     from skimage.morphology import disk, binary_opening
     from skimage.util import img_as_ubyte, img_as_float
+
+    # DsRed has no exposure variance; thresholding over the average is enough
     DsRed_bin = DsRed > np.average(DsRed)
-    GFP_th = img_as_float(percentile(img_as_ubyte(GFP), disk(20), p0=0.75))
-    GFP_bin = GFP > GFP_th
-    # GFP_bin[binary_opening(GFP_bin)] = False
+
+    # GFP is a bit trickier: A pixel is kept, if its value is greater than
+    # the 75th percentile in its 40x40 circular neighbourhood
+    GFP_bin = GFP > img_as_float(percentile(img_as_ubyte(GFP), disk(20), p0=0.75))
+
+    # Setting the actual return values (=0 or >0)
     DsRed[~DsRed_bin] = 0
     GFP[~GFP_bin] = 0
-    # GFP = GFP_th
+
     return DsRed, GFP
 
 
 @step
+# Applies the mask of DsRed to GFP - used to filter out false positives
 def binary_mask(DsRed, GFP):
     GFP[DsRed == 0] = 0
+
     return DsRed, GFP
 
 
 @step
-# @skip
+# Simple hough transformation
 def hough(DsRed, GFP):
     from skimage.transform import hough_circle
-    DsRed = np.amax(hough_circle(DsRed, np.arange(8, 15)), axis=0) ** 2
-    GFP = np.amax(hough_circle(GFP, np.arange(8, 15)), axis=0) ** 2
+
+    # Since the size of the granule is unknown, trying multiple radiuses
+    radius = np.arange(8, 15)
+
+    # Applying binary hough transformation to both DsRed and GFP
+    DsRed = np.amax(hough_circle(DsRed, radius), axis=0)
+    GFP = np.amax(hough_circle(GFP, radius), axis=0)
+
+    # Making intenser values more intense by squaring the images
+    DsRed = DsRed ** 2
+    GFP = GFP ** 2
+
     return DsRed, GFP
 
 
-@step
-@skip
+# @step
 def grayscale_mask(DsRed, GFP):
+    # Where DsRed is low, GFP should also be low
+    # sqrt is introduced to keep the nominal value
     GFP = np.sqrt(GFP * DsRed)
+
     return DsRed, GFP
 
 
+# Artifacts
 stat_text = []
 stat_image = None
 
 
 @step
 def calc(DsRed, GFP):
+    global stat_image, good_coordinates, bad_coordinates, all_coordinates
+
     stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
     stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
 
-    global stat_image
     stat_image = GFP * 2 - DsRed
     stat_image[stat_image < 0] = 0
     stat_text.append(f"Stat: {np.average(stat_image)}\n")
 
+    # Instead of saving just the stat, also add the final DsRed and GFP channels for further inspection
     stat_image = np.dstack([DsRed, GFP, stat_image])
 
-    global good_coordinates, bad_coordinates, all_coordinates
-
+    # Helper function to locate circle centers after hough transformation
     def extract_coordinates(img, *masks):
+        """
+        Creates a list of peak coordinates from an image and a list of masks
+
+        :param img: Image to search peak values on
+        :param masks: Array of (img, threshold, invert_threshold) tuples
+        :return: list of (x, y) tuples
+        """
         from skimage.feature import peak_local_max
         coords = peak_local_max(img, min_distance=15)
         mask = np.ones_like(img) > 0
         while len(masks) > 0:
-            mask_img, th, invert_th = masks[0] + (img, 0.5, False)[len(masks[0]):]
-            masks = masks[1:]
-
             from skimage.filters.rank import maximum
             from skimage.morphology import disk
             from skimage.util import img_as_ubyte, img_as_float
-            # NanoImagingPack.view(mask_img)
+
+            # shift the current mask to (madk_img, th, invert_th)
+            mask_img, th, invert_th = masks[0] + (img, 0.5, False)[len(masks[0]):]
+            masks = masks[1:]
+
             mask_img = np.minimum(np.maximum(mask_img,
                                              np.zeros_like(stat_image[:, :, 0])),
                                   np.ones_like(stat_image[:, :, 0]))
@@ -179,56 +217,76 @@ def calc(DsRed, GFP):
         coords = list(coords)
         return coords
 
-    good_coordinates = extract_coordinates(stat_image[:, :, 0], (), (stat_image[:, :, 1], 0.35))
-    bad_coordinates = extract_coordinates(stat_image[:, :, 0], (), (stat_image[:, :, 1], 0.35, True))
-    all_coordinates = extract_coordinates(stat_image[:, :, 0], ())
+    # Good coordinates are circle centers on DsRed, where there is a nearby circle center (DsRed) value at least 0.5 and
+    # there is a nearby GFP value at least 0.35
+    good_coordinates = extract_coordinates(DsRed, (), (GFP, 0.35, False))
+
+    # Bad coordinates are similar to good coordinates, but the GFP mask is flipped
+    bad_coordinates = extract_coordinates(DsRed, (), (GFP, 0.35, True))
+
+    # All coordinates do not have any GFP filter
+    all_coordinates = extract_coordinates(DsRed, ())
 
     stat_text.append(f"Count: {len(all_coordinates)}\n")
     stat_text.append(f"Hit count: {len(good_coordinates)}\n")
     stat_text.append(f"Miss count: {len(bad_coordinates)}\n")
     stat_text.append(f"Ratio: {len(good_coordinates) / len(all_coordinates)}\n")
 
-    return DsRed, GFP
+    # This step does not modify anything
+    return ()
 
 
 if interactive:
-    print()
-    print("Statistics:")
-    sys.stdout.writelines(stat_text)
-
-    # from NanoImagingPack import view
-    # view(stats)
+    # Interactive mode has two more, kinda useless steps, only for demonstration purposes
 
     @step
+    # If we blur the image, the misaligned GFP and DsRed centers are displayed on the same pixel,
+    # thus we can tell using a human eye much more of a given pixel by its lightness and its hue
     def blur(DsRed, GFP):
         from skimage.filters import gaussian
+
         sigma = 15
         DsRed = gaussian(DsRed, sigma)
         GFP = gaussian(GFP, sigma)
+
         return DsRed, GFP
 
 
     @step
+    # Replaces the whole display with a grayscale image of "good" regions
     def visual_calc(DsRed, GFP):
-        # ratio = np.divide(GFP, DsRed, where=DsRed != 0)
+
         ratio = GFP * 1.5 - DsRed
         ratio[ratio < 0] = 0
-        print(f"Ratio: {round(np.average(ratio) * 10000) / 100}%")
-        # ratio = ratio * np.nanmedian(1 / ratio) / 2
+
         return ratio, ratio
 
 
-    from NanoImagingPack import v5
-    viewer = v5(np.array(img5), multicol=True)
+    # Displaying results...
+
+    # Print statistics to console
+    print()
+    print("Statistics:")
+    sys.stdout.writelines(stat_text)
+    print()
+
+    # Show captured step-intermediate images using View 5D
+    viewer = NanoImagingPack.v5(np.array(img5), multicol=True)
     # note: using img4 instead of img5 is a good idea
+
+    # Navigate to the output of step 1 and initialize exposure
     viewer.ProcessKeys(',T')
 
+    # Displaying the coordinates
+
     import javabridge as jb
+
+    # Disable useless lines connection the markers
     my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
-    myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
     jb.set_field(my3DData, 'ConnectionShown', 'Z', False)
 
 
+    # Helper function: Converts 2D coordinates to 5D, spanning all steps
     def f(coords):
         result = []
         for coord in coords:
@@ -237,13 +295,21 @@ if interactive:
         return result
 
 
+    # Pushing the coordinates to the user interface (good -> List1, bad -> List2)
     viewer.setMarkers(f(good_coordinates), 1)
     viewer.setMarkers(f(bad_coordinates), 2)
+
+    # Set marker colors (List1 -> green, List2 -> blue)
+    myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
     jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
     jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
+
+    # Refresh UI by initializing viewport
     viewer.ProcessKeys('i')
+
     print("done")
 else:
+    # In non-interactive mode saving all output to the folder given by CLI argument
     open(folder + '/stats.txt', 'w').writelines(stat_text)
     open(folder + '/granules-with-rings.txt', 'w').writelines(
         ['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
@@ -254,7 +320,9 @@ else:
 
     from skimage.io import imsave
     from skimage.util import img_as_ubyte
+
+    # Sometimes stat values are out of range; fixing
     stat_image[stat_image > 1] = 1
     stat_image[stat_image < 0] = 0
+
     imsave(folder + '/stats.tif', img_as_ubyte(stat_image))
-    # imsave(folder + '/composite.tif', composite)
