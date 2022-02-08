@@ -131,9 +131,17 @@ Opens a 4D ZVI file in 5D Viewer
 
 ## Demo
 
+### v1.x
+
 Here is a low resolution demonstration of the internals of the first iteration, from 2021H2:
 
 ![steps](steps.jpg)
+
+### v2.x
+
+Reimagined version with true hough transformation, better quality code, and integrated 5D Viewer built on top of [NanoImagingPack](https://gitlab.com/bionanoimaging/nanoimagingpack) written from scratch.
+
+![screenshot-2022-02-08T14:53:33+01:00](https://user-images.githubusercontent.com/8544161/153001514-b4b45a65-700f-4d72-a479-369643fd7f54.png)
 
 ## License
 
