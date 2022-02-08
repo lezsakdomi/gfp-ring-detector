@@ -137,7 +137,7 @@ def grayscale_mask(DsRed, GFP):
 
 @step
 def calc(DsRed, GFP):
-    global stats, ratio, pixel_ratio
+    global stats, ratio, pixel_ratio, stat_ratio
     ratio = np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))
     pixel_ratio = np.average(GFP.astype(np.float64))
     stats = GFP * 2 - DsRed
