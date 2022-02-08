@@ -63,13 +63,16 @@ Walks the `képek/` folder, and if it finds a `stats.txt` named file,
 links the folder of the file (and the `composite.tif` file from it)
 to the newly-created `ordered/` folder.
 
-Also creates a `files.zip` file with the most notable files
-from the `ordered/` folder.
+#### Environment variables
+- `$NO_RM` \[optional]  
+  To prevent emptying the `ordered/` folder, set the `$NO_RM` env var to
+  a non-empty value.
+- `$ZIP_FILE` \[optional]
+  Creates a file with this name the most notable files
+  from the `ordered/` folder. Compatible with `$NO_RM`
 
-To prevent emptying the `ordered/` folder, set the `NO_RM` env var to
-a non-empty value.
 
-- [ ] **TODO** `STREAMING` environment variable not really works, 
+- [ ] **TODO** `$STREAMING` environment variable not really works, 
       fix and document it
 
 #### Preconditions

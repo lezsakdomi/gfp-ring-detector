@@ -2,7 +2,7 @@ STREAM="$1"
 
 if [ -z "$NO_RM" ]; then
   mkdir ordered || rm ordered/* || :
-  rm files.zip
+  [ -z "$ZIP_FILE" ] || rm "$ZIP_FILE"
 fi
 
 if [ -z "$STREAM" ]; then
@@ -45,5 +45,7 @@ fi | while IFS= read file; do
   # convert "$folder"/*_c?.tif -combine "$linkname"
 done
 echo
-zip ${NO_RM:+-u} files.zip ordered/*/composite.jpg ordered/*/*.txt
-du -h files.zip
+if [ -n "$ZIP_FILE" ]; then
+  zip ${NO_RM:+-u} "$ZIP_FILE" ordered/*/composite.jpg ordered/*/*.txt
+  du -h "$ZIP_FILE"
+fi
