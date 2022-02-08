@@ -6,5 +6,6 @@ echo "$files" | while IFS= read file; do
   printf "$i / $count\r"
   folder="$(dirname "$file")"
   convert "$folder"/*_c?.tif -combine "$folder"/composite.tif
+  convert "$folder"/composite.tif "$folder"/composite.jpg
 done
 echo
