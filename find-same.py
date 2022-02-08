@@ -14,7 +14,7 @@ target = filters.gaussian(target, 3)
 cnt = 0
 last_time = perf_counter()
 last_cnt = cnt
-for root, dirs, files in os.walk("kepek"):
+for root, dirs, files in os.walk("képek"):
     for file in files:
         if file.endswith("_c0.tif"):
             cnt += 1
