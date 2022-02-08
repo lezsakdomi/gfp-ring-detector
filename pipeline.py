@@ -1,4 +1,5 @@
 import copy
+from os.path import dirname
 import sys
 
 import matplotlib.pyplot
@@ -148,6 +149,36 @@ def calc(DsRed, GFP):
     print(pixel_ratio)
     print(stat_ratio)
     stats = np.dstack([DsRed, GFP, stats])
+
+    global good_coordinates, bad_coordinates, all_coordinates
+
+    def f(img, *kargs):
+        from skimage.feature import peak_local_max
+        coords = peak_local_max(img, min_distance=15)
+        mask = np.ones_like(img) > 0
+        while len(kargs) > 2:
+            mask_img, th, invert_th = kargs[0:3]
+            kargs = kargs[3:]
+
+            from skimage.filters.rank import maximum
+            from skimage.morphology import disk
+            from skimage.util import img_as_ubyte, img_as_float
+            # NanoImagingPack.view(mask_img)
+            mask_img = np.minimum(np.maximum(mask_img,
+                                             np.zeros_like(stats[:, :, 0])),
+                                  np.ones_like(stats[:, :, 0]))
+            mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
+            bin = mask_img > th
+            if invert_th:
+                bin = ~bin
+            mask[~bin] = False
+
+        coords = filter(lambda coord: mask[coord[0], coord[1]], coords)
+        return coords
+
+    good_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False, stats[:, :, 1], 0.35, False)
+    bad_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False, stats[:, :, 1], 0.35, True)
+    all_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False)
     return DsRed, GFP
 
 
@@ -181,47 +212,24 @@ if interactive:
     # note: using img4 instead of img5 is a good idea
     viewer.ProcessKeys('..T')
 
-    @step
-    def find_centers():
-        from skimage.feature import peak_local_max
-        import javabridge as jb
-        my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
-        myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
-        jb.set_field(my3DData, 'ConnectionShown', 'Z', False)
+    import javabridge as jb
+    my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
+    myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
+    jb.set_field(my3DData, 'ConnectionShown', 'Z', False)
 
-        def f(img, *kargs):
-            coords = peak_local_max(img, min_distance=15, indices=True)
-            result = []
-            mask = np.ones_like(img) > 0
-            while len(kargs) > 2:
-                mask_img, th, invert_th = kargs[0:3]
-                kargs = kargs[3:]
 
-                from skimage.filters.rank import maximum
-                from skimage.morphology import disk
-                from skimage.util import img_as_ubyte, img_as_float
-                # NanoImagingPack.view(mask_img)
-                mask_img = np.minimum(np.maximum(mask_img,
-                                                 np.zeros_like(stats[:,:,0])),
-                                      np.ones_like(stats[:,:,0]))
-                mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
-                bin = mask_img > th
-                if invert_th:
-                    bin = ~bin
-                mask[~bin] = False
+    def f(coords):
+        result = []
+        for coord in coords:
+            for t in range(step_cnt):
+                result.append(np.array([t, 0, 0, coord[0], coord[1]]))
+        return result
 
-            for coord in coords:
-                if mask[coord[0], coord[1]]:
-                    for t in range(step_cnt):
-                        result.append(np.array([t, 0, 0, coord[0], coord[1]]))
-            return result
 
-        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.35, False), 1)
-        viewer.setMarkers(f(stats[:,:,0], stats[:,:,0], 0.5, False, stats[:,:,1], 0.35, True), 2)
-        jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
-        jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
-        return [stats]
-    
+    viewer.setMarkers(f(good_coordinates), 1)
+    viewer.setMarkers(f(bad_coordinates), 2)
+    jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
+    jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
     print("done")
 else:
     from skimage.io import imsave
@@ -231,3 +239,6 @@ else:
     imsave(folder + '/stats.tif', img_as_ubyte(stats))
     # imsave(folder + '/composite.tif', composite)
 
+    open(folder + '/granules-with-rings.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
+    open(folder + '/granules-without-rings.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in bad_coordinates])
+    open(folder + '/granules.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in all_coordinates])
