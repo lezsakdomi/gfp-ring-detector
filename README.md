@@ -25,6 +25,7 @@ Analyzes an image and saves the result or (in _interactive mode_) displays it us
 - [ ] **TODO** Exit as soon as 5D Viewer is closed
 - [ ] **TODO** Open 5D Viewer early and push new images in realtime
 - [ ] **TODO** Measure and estimate computing time of each step
+- [ ] **TODO** Do not depend on NanoImagingPack
 
 #### Arguments
 
