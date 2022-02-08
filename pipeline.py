@@ -1,4 +1,3 @@
-import copy
 from os.path import dirname
 import sys
 
@@ -13,11 +12,12 @@ else:
     fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
 
 if len(sys.argv) > 2:
-    folder = sys.argv[2]
+    folder = sys.argv[2] or dirname(fname_template)
 
 interactive = len(sys.argv) < 3
 if interactive:
-    print(f"Usage: {sys.argv[0]} input_template [output_template]", file=sys.stderr)
+    print(f"Usage: {sys.argv[0]} input_template [output_folder | \"\"]")
+    print("For non-interactive usage please supply both arguments", file=sys.stderr)
     matplotlib.use('QtAgg')
     # noinspection PyUnresolvedReferences
     import NanoImagingPack
@@ -41,9 +41,9 @@ step_cnt = 0
 def step(func):
     from inspect import signature
     global step_cnt, img5, img4
-    print(f"Step {step_cnt}: {func.__name__} {signature(func)}", file=sys.stderr)
+    print(f"Step {step_cnt}: {func.__name__} {signature(func)}")
     params = signature(func).parameters
-    result = func(*[copy.deepcopy(last[c]) if interactive else last[c] for c in range(len(params))])
+    result = func(*[last[c].copy() if interactive else last[c] for c in range(len(params))])
     step_cnt += 1
     for c in range(len(result)):
         last[c] = result[c]
@@ -105,7 +105,7 @@ def binarize(DsRed, GFP):
     from skimage.morphology import disk, binary_opening
     from skimage.util import img_as_ubyte, img_as_float
     DsRed_bin = DsRed > np.average(DsRed)
-    GFP_th = img_as_float(percentile(GFP, img_as_ubyte(disk(20)), p0=0.75))
+    GFP_th = img_as_float(percentile(img_as_ubyte(GFP), disk(20), p0=0.75))
     GFP_bin = GFP > GFP_th
     # GFP_bin[binary_opening(GFP_bin)] = False
     DsRed[~DsRed_bin] = 0
@@ -136,37 +136,39 @@ def grayscale_mask(DsRed, GFP):
     return DsRed, GFP
 
 
+stat_text = []
+stat_image = None
+
+
 @step
 def calc(DsRed, GFP):
-    global stats, ratio, pixel_ratio, stat_ratio
-    ratio = np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))
-    pixel_ratio = np.average(GFP.astype(np.float64))
-    stats = GFP * 2 - DsRed
-    stats[stats < 0] = 0
-    stat_ratio = np.average(stats)
-    print(f"Ratio: {round(ratio * 10000) / 100}%", file=sys.stderr)
-    print(ratio)
-    print(pixel_ratio)
-    print(stat_ratio)
-    stats = np.dstack([DsRed, GFP, stats])
+    stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
+    stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
+
+    global stat_image
+    stat_image = GFP * 2 - DsRed
+    stat_image[stat_image < 0] = 0
+    stat_text.append(f"Stat: {np.average(stat_image)}\n")
+
+    stat_image = np.dstack([DsRed, GFP, stat_image])
 
     global good_coordinates, bad_coordinates, all_coordinates
 
-    def f(img, *kargs):
+    def extract_coordinates(img, *masks):
         from skimage.feature import peak_local_max
         coords = peak_local_max(img, min_distance=15)
         mask = np.ones_like(img) > 0
-        while len(kargs) > 2:
-            mask_img, th, invert_th = kargs[0:3]
-            kargs = kargs[3:]
+        while len(masks) > 0:
+            mask_img, th, invert_th = masks[0] + (img, 0.5, False)[len(masks[0]):]
+            masks = masks[1:]
 
             from skimage.filters.rank import maximum
             from skimage.morphology import disk
             from skimage.util import img_as_ubyte, img_as_float
             # NanoImagingPack.view(mask_img)
             mask_img = np.minimum(np.maximum(mask_img,
-                                             np.zeros_like(stats[:, :, 0])),
-                                  np.ones_like(stats[:, :, 0]))
+                                             np.zeros_like(stat_image[:, :, 0])),
+                                  np.ones_like(stat_image[:, :, 0]))
             mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
             bin = mask_img > th
             if invert_th:
@@ -174,20 +176,30 @@ def calc(DsRed, GFP):
             mask[~bin] = False
 
         coords = filter(lambda coord: mask[coord[0], coord[1]], coords)
+        coords = list(coords)
         return coords
 
-    good_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False, stats[:, :, 1], 0.35, False)
-    bad_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False, stats[:, :, 1], 0.35, True)
-    all_coordinates = f(stats[:, :, 0], stats[:, :, 0], 0.5, False)
+    good_coordinates = extract_coordinates(stat_image[:, :, 0], (), (stat_image[:, :, 1], 0.35))
+    bad_coordinates = extract_coordinates(stat_image[:, :, 0], (), (stat_image[:, :, 1], 0.35, True))
+    all_coordinates = extract_coordinates(stat_image[:, :, 0], ())
+
+    stat_text.append(f"Count: {len(all_coordinates)}\n")
+    stat_text.append(f"Hit count: {len(good_coordinates)}\n")
+    stat_text.append(f"Miss count: {len(bad_coordinates)}\n")
+    stat_text.append(f"Ratio: {len(good_coordinates) / len(all_coordinates)}\n")
+
     return DsRed, GFP
 
 
 if interactive:
-    from NanoImagingPack import view
+    print()
+    print("Statistics:")
+    sys.stdout.writelines(stat_text)
+
+    # from NanoImagingPack import view
     # view(stats)
 
     @step
-    # @skip
     def blur(DsRed, GFP):
         from skimage.filters import gaussian
         sigma = 15
@@ -197,12 +209,11 @@ if interactive:
 
 
     @step
-    # @skip
     def visual_calc(DsRed, GFP):
         # ratio = np.divide(GFP, DsRed, where=DsRed != 0)
         ratio = GFP * 1.5 - DsRed
         ratio[ratio < 0] = 0
-        print(f"Ratio: {round(np.average(ratio) * 10000) / 100}%", file=sys.stderr)
+        print(f"Ratio: {round(np.average(ratio) * 10000) / 100}%")
         # ratio = ratio * np.nanmedian(1 / ratio) / 2
         return ratio, ratio
 
@@ -210,7 +221,7 @@ if interactive:
     from NanoImagingPack import v5
     viewer = v5(np.array(img5), multicol=True)
     # note: using img4 instead of img5 is a good idea
-    viewer.ProcessKeys('..T')
+    viewer.ProcessKeys(',T')
 
     import javabridge as jb
     my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
@@ -230,15 +241,20 @@ if interactive:
     viewer.setMarkers(f(bad_coordinates), 2)
     jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
     jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
+    viewer.ProcessKeys('i')
     print("done")
 else:
+    open(folder + '/stats.txt', 'w').writelines(stat_text)
+    open(folder + '/granules-with-rings.txt', 'w').writelines(
+        ['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
+    open(folder + '/granules-without-rings.txt', 'w').writelines(
+        ['\t'.join(map(str, reversed(coord))) + '\n' for coord in bad_coordinates])
+    open(folder + '/granules.txt', 'w').writelines(
+        ['\t'.join(map(str, reversed(coord))) + '\n' for coord in all_coordinates])
+
     from skimage.io import imsave
     from skimage.util import img_as_ubyte
-    stats[stats > 1] = 1
-    stats[stats < 0] = 0
-    imsave(folder + '/stats.tif', img_as_ubyte(stats))
+    stat_image[stat_image > 1] = 1
+    stat_image[stat_image < 0] = 0
+    imsave(folder + '/stats.tif', img_as_ubyte(stat_image))
     # imsave(folder + '/composite.tif', composite)
-
-    open(folder + '/granules-with-rings.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
-    open(folder + '/granules-without-rings.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in bad_coordinates])
-    open(folder + '/granules.txt', 'w').writelines(['\t'.join(map(str, reversed(coord))) + '\n' for coord in all_coordinates])

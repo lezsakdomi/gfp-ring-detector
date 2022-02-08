@@ -10,7 +10,7 @@ echo "$folders" | while IFS= read folder; do
   fi
   echo "\e[1m[$i / $count] $folder\e[0m"
   fn="$(find "$folder/" -name '*_c0.tif' | head -n1)"
-  time python pipeline.py "${fn%_c0.tif}_c{}.tif" "$folder" >"$folder/stats.txt" \
+  time python pipeline.py "${fn%_c0.tif}_c{}.tif" "$folder" \
     && echo "$folder" | tee -a done.txt
   echo
 done
