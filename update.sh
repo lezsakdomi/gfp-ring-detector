@@ -1,1 +1,1 @@
-onedrive --confdir ~/.config/onedrive-student --download-only --synchronize --single-directory 'képek'
+onedrive --confdir ~/.config/onedrive-student --download-only --synchronize --single-directory 'képek' "$@"
