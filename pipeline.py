@@ -1,9 +1,14 @@
+from pipeline_lib import Step, Pipeline
+
+
 if __name__ == '__main__':
     from os.path import dirname
     import sys
 
     import matplotlib.pyplot
     import numpy as np
+
+    global interactive, fname_template
 
     if len(sys.argv) > 1:
         fname_template = sys.argv[1]
@@ -24,63 +29,53 @@ if __name__ == '__main__':
         import bioformats
 
 
-    # helper function for reading a specified channel as numpy array (image)
-    def chread(chnum):
-        from skimage.io import imread
-        fname = fname_template.format(chnum)
-        img = imread(fname)
-        return img
+# helper function for reading a specified channel as numpy array (image)
+def chread(chnum):
+    from skimage.io import imread
+    fname = fname_template.format(chnum)
+    img = imread(fname)
+    return img
 
 
-    # Current DsRed, GFP and DAPI images
-    current = []
+class RingDetector(Pipeline):
+    def __init__(self):
+        _add_steps(self.add_step)
+        self.seal_steps()
 
-    # Debugging: 5D image where each step creates a new slice in the T (time) dimension
-    img5 = []
-
-    # Debugging: 4D image where each step creates a new slice in the Z dimension
-    img4 = None
-
-    step_cnt = 0
+# Debugging: 5D image where each step creates a new slice in the T (time) dimension
+img5 = []
 
 
-    # helper function for performing steps in the pipeline
-    # If a function is decorated with @step, it's performed right away
-    def step(func):
-        from inspect import signature
-        global step_cnt, img5, img4
-        print(f"Step {step_cnt}: {func.__name__} {signature(func)}")
-        params = signature(func).parameters
-        result = func(*[current[c].copy() if interactive else current[c] for c in range(len(params))])
-        step_cnt += 1
-        for c in range(len(result)):
-            current[c] = result[c]
+def add_to_img5(step, pipeline, state, done=False, error=None, step_index=0):
+    outputs = ['GFP', 'DsRed', 'DAPI']
+    shape = (1040, 1388)
 
+    if not done:
+        print(f"[{step_index + 1}/{len(pipeline.steps)}] Executing step {step.name}...", end="")
+    else:
+        print(f" done (took {step._last_profile_duration:.3}s)")
         images5 = []
-        if img4 is None:
-            img4 = [[] for _ in current]
-        for c in range(len(current)):
-            img = current[c].copy()
-            # img[np.isnan(img)] = 0
+        for c, out in enumerate(outputs):
+            if out in state:
+                img = state[out].copy()
+            else:
+                img = np.zeros(shape)
             images5.append([img])
-            img = img / np.max(img)
-            img4[c].append(img)
         img5.append(images5)
 
 
-    @step
+def _add_steps(add):
+    @add
+    @Step.of(['DsRed', 'GFP', 'DAPI'])
     def load():
-        global current
-
         DsRed = chread(0)
         GFP = chread(1)
         DAPI = chread(2)
-        current = [DsRed, GFP, DAPI]
 
         return DsRed, GFP, DAPI
 
-
-    @step
+    @add
+    @Step.of(['DsRed', 'GFP'])
     def clean(DsRed, GFP):
         from skimage.filters import gaussian
 
@@ -89,8 +84,8 @@ if __name__ == '__main__':
 
         return DsRed, GFP
 
-
-    @step
+    @add
+    @Step.of(['DsRed', 'GFP'])
     # Extracting circular features - converting disks to circles
     def circlize(DsRed, GFP):
         from skimage.morphology import erosion, dilation, disk
@@ -104,10 +99,10 @@ if __name__ == '__main__':
 
         return DsRed, GFP
 
-
     # TODO skip this step for more accuracy
     #      needs replacing hough_circle with custom algo
-    @step
+    @add
+    @Step.of(['DsRed', 'GFP'])
     # Converting grayscale images to binary images, essentially thresholding
     # Instead of returning True/False values, returns an image, where black means False and the original value means True
     def binarize(DsRed, GFP):
@@ -128,16 +123,16 @@ if __name__ == '__main__':
 
         return DsRed, GFP
 
-
-    @step
+    @add
+    @Step.of('GFP')
     # Applies the mask of DsRed to GFP - used to filter out false positives
     def binary_mask(DsRed, GFP):
         GFP[DsRed == 0] = 0
 
-        return DsRed, GFP
+        return GFP
 
-
-    @step
+    @add
+    @Step.of(['DsRed', 'GFP'])
     # Simple hough transformation
     def hough(DsRed, GFP):
         from skimage.transform import hough_circle
@@ -155,25 +150,10 @@ if __name__ == '__main__':
 
         return DsRed, GFP
 
-
-    # @step
-    def grayscale_mask(DsRed, GFP):
-        # Where DsRed is low, GFP should also be low
-        # sqrt is introduced to keep the nominal value
-        GFP = np.sqrt(GFP * DsRed)
-
-        return DsRed, GFP
-
-
-    # Artifacts
-    stat_text = []
-    stat_image = None
-
-
-    @step
+    @add
+    @Step.of(['stat_text', 'stat_image'])
     def calc(DsRed, GFP):
-        global stat_image, good_coordinates, bad_coordinates, all_coordinates
-
+        stat_text = []
         stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
         stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
 
@@ -184,6 +164,11 @@ if __name__ == '__main__':
         # Instead of saving just the stat, also add the final DsRed and GFP channels for further inspection
         stat_image = np.dstack([DsRed, GFP, stat_image])
 
+        return stat_text, stat_image
+
+    @add
+    @Step.of(['good_coordinates', 'bad_coordinates', 'all_coordinates'])
+    def find_coordinates(DsRed, GFP):
         # Helper function to locate circle centers after hough transformation
         def extract_coordinates(img, *masks):
             """
@@ -206,8 +191,8 @@ if __name__ == '__main__':
                 masks = masks[1:]
 
                 mask_img = np.minimum(np.maximum(mask_img,
-                                                 np.zeros_like(stat_image[:, :, 0])),
-                                      np.ones_like(stat_image[:, :, 0]))
+                                                 np.zeros_like(img)),
+                                      np.ones_like(img))
                 mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
                 bin = mask_img > th
                 if invert_th:
@@ -228,19 +213,23 @@ if __name__ == '__main__':
         # All coordinates do not have any GFP filter
         all_coordinates = extract_coordinates(DsRed, ())
 
+        return good_coordinates, bad_coordinates, all_coordinates
+
+    @add
+    @Step.of('stat_text')
+    def count(stat_text, good_coordinates, bad_coordinates, all_coordinates):
         stat_text.append(f"Count: {len(all_coordinates)}\n")
         stat_text.append(f"Hit count: {len(good_coordinates)}\n")
         stat_text.append(f"Miss count: {len(bad_coordinates)}\n")
         stat_text.append(f"Ratio: {len(good_coordinates) / len(all_coordinates)}\n")
+        return stat_text
 
-        # This step does not modify anything
-        return ()
-
-
+    global interactive
     if interactive:
         # Interactive mode has two more, kinda useless steps, only for demonstration purposes
 
-        @step
+        @add
+        @Step.of(['DsRed', 'GFP'])
         # If we blur the image, the misaligned GFP and DsRed centers are displayed on the same pixel,
         # thus we can tell using a human eye much more of a given pixel by its lightness and its hue
         def blur(DsRed, GFP):
@@ -252,17 +241,25 @@ if __name__ == '__main__':
 
             return DsRed, GFP
 
-
-        @step
+        @add
+        @Step.of('ratio')
         # Replaces the whole display with a grayscale image of "good" regions
         def visual_calc(DsRed, GFP):
 
             ratio = GFP * 1.5 - DsRed
             ratio[ratio < 0] = 0
 
-            return ratio, ratio
+            return ratio
 
 
+if __name__ == "__main__":
+    pipeline = RingDetector()
+    stat_text, good_coordinates, bad_coordinates, all_coordinates, stat_image = pipeline.run(
+        ['stat_text', 'good_coordinates', 'bad_coordinates', 'all_coordinates', 'stat_image'],
+        add_to_img5 if interactive else None
+    )
+
+    if interactive:
         # Displaying results...
 
         # Print statistics to console
@@ -291,7 +288,7 @@ if __name__ == '__main__':
         def f(coords):
             result = []
             for coord in coords:
-                for t in range(step_cnt):
+                for t in range(len(pipeline.steps)):
                     result.append(np.array([t, 0, 0, coord[0], coord[1]]))
             return result
 
