@@ -186,7 +186,7 @@ def _add_steps(add):
                 from skimage.morphology import disk
                 from skimage.util import img_as_ubyte, img_as_float
 
-                # shift the current mask to (madk_img, th, invert_th)
+                # shift the current mask to (mask_img, th, invert_th)
                 mask_img, th, invert_th = masks[0] + (img, 0.5, False)[len(masks[0]):]
                 masks = masks[1:]
 
