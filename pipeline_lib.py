@@ -1,9 +1,8 @@
+from asyncio import Event
 import functools
 import inspect
 import time
 import types
-
-import numpy
 
 
 class Step:
@@ -25,6 +24,10 @@ class Step:
         self._inputs = on or tuple(inspect.signature(func).parameters.keys())
         self._outputs = of or inspect.signature(func).return_annotation
         # TODO check if arguments OK
+        self._started = Event()
+        self._finished = Event()
+        self._completed = Event()
+        self._errored = Event()
 
     def clone(self):
         return Step(self._func, self._name, self._inputs, self._outputs)
@@ -52,6 +55,10 @@ class Step:
     _last_input = None
     _last_output = None
     _last_error = None
+    _started = None
+    _finished = None
+    _completed = None
+    _errored = None
 
     def _clean(self):
         self._last_started = None
@@ -62,6 +69,10 @@ class Step:
         self._last_input = None
         self._last_output = None
         self._last_error = None
+        self._started.clear()
+        self._finished.clear()
+        self._completed.clear()
+        self._errored.clear()
 
     def _load(self, state):
         # TODO check if in right state
@@ -69,18 +80,26 @@ class Step:
 
     def _run(self):
         # TODO check if in right state
+        self._started.set()
         self._last_started = time.time()
-        self._last_pc = time.perf_counter()
+        self._last_started_pc = time.perf_counter()
         started = time.process_time()
         try:
-            self._last_output = self._func(*self._last_input)
+            try:
+                self._last_output = self._func(*self._last_input)
+            except BaseException as e:
+                self._last_error = e
+                raise
+            finally:
+                self._last_profile_duration = time.process_time() - started
+                self._last_finished_pc = time.perf_counter()
+                self._last_finished = time.time()
+            self._completed.set()
         except BaseException as e:
-            self._last_error = e
+            self._errored.set()
             raise
         finally:
-            self._last_profile_duration = time.process_time() - started
-            self._last_finished_pc = time.perf_counter()
-            self._last_finished = time.time()
+            self._finished.set()
 
     def _save(self, state):
         # TODO check if in right state
