@@ -46,11 +46,13 @@ class RingDetector(Pipeline):
 img5 = []
 
 
-def add_to_img5(step, pipeline, state, done=False, error=None, step_index=0):
+def add_to_img5(step, pipeline, state, completed=False, step_index=0):
+    import numpy as np
+
     outputs = ['GFP', 'DsRed', 'DAPI']
     shape = (1040, 1388)
 
-    if not done:
+    if not completed:
         print(f"[{step_index + 1}/{len(pipeline.steps)}] Executing step {step.name}...", end="")
     else:
         print(f" done (took {step._last_profile_duration:.3}s)")

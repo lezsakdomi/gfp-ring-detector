@@ -60,6 +60,19 @@ class Step:
     _completed = None
     _errored = None
 
+    @property
+    def last_input(self):
+        return dict(zip(self.inputs, self._last_input))
+
+    @property
+    def last_output(self):
+        if isinstance(self._last_output, dict):
+            return self._last_output
+        elif isinstance(self._outputs, str):
+            return {self._outputs: self._last_output}
+        else:
+            return dict(zip(self.outputs, self._last_output))
+
     def _clean(self):
         self._last_started = None
         self._last_started_pc = None
@@ -169,12 +182,12 @@ class Pipeline:
             clone.seal_steps()
         return clone
 
-    def run(self, outputs, cb=None):
+    def run(self, outputs=[], cb=None):
         state = {}
 
         for step_index, step in enumerate(self.steps):
             if cb is not None:
-                cb(step, pipeline=self, state=state, done=False, error=None, step_index=step_index)
+                cb(step, pipeline=self, state=state, finished=False, completed=False, error=None, step_index=step_index)
             else:
                 print(f"[{step_index + 1}/{len(self.steps)}] Executing step {step.name}...", end="")
 
@@ -182,11 +195,11 @@ class Pipeline:
                 step.run_on(state)
             except Exception as e:
                 if cb is not None:
-                    cb(step, pipeline=self, state=state, done=False, error=e, step_index=step_index)
+                    cb(step, pipeline=self, state=state, finished=True, completed=False, error=e, step_index=step_index)
                 raise
 
             if cb is not None:
-                cb(step, pipeline=self, state=state, done=True, error=None, step_index=step_index)
+                cb(step, pipeline=self, state=state, finished=True, completed=True, error=None, step_index=step_index)
             else:
                 print(f" done (took {step._last_profile_duration:.3}s)")
 
