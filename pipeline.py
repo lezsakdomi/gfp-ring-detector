@@ -1,14 +1,14 @@
 from pipeline_lib import Step, Pipeline
 
+interactive = False
 
 if __name__ == '__main__':
     from os.path import dirname
     import sys
 
     import matplotlib.pyplot
-    import numpy as np
 
-    global interactive, fname_template
+    global fname_template
 
     if len(sys.argv) > 1:
         fname_template = sys.argv[1]
@@ -30,16 +30,19 @@ if __name__ == '__main__':
 
 
 # helper function for reading a specified channel as numpy array (image)
-def chread(chnum):
-    from skimage.io import imread
-    fname = fname_template.format(chnum)
-    img = imread(fname)
-    return img
+def chreader(fname_template: str):
+    def chread(chnum):
+        from skimage.io import imread
+        fname = fname_template.format(chnum)
+        img = imread(fname)
+        return img
+
+    return chread
 
 
 class RingDetector(Pipeline):
-    def __init__(self):
-        _add_steps(self.add_step)
+    def __init__(self, fname_template=None, chread=None):
+        _add_steps(self.add_step, fname_template, chread)
         self.seal_steps()
 
 # Debugging: 5D image where each step creates a new slice in the T (time) dimension
@@ -66,7 +69,15 @@ def add_to_img5(step, pipeline, state, completed=False, step_index=0):
         img5.append(images5)
 
 
-def _add_steps(add):
+def _add_steps(add, fname_template=None, chread=None):
+    import numpy as np
+
+    if chread is None:
+        chread = chreader(fname_template)
+
+    if chread is None:
+        raise RuntimeError("Either supply chread of fname_template")
+
     @add
     @Step.of(['DsRed', 'GFP', 'DAPI'])
     def load():
@@ -156,6 +167,8 @@ def _add_steps(add):
     @Step.of(['stat_text', 'stat_image'])
     def calc(DsRed, GFP):
         stat_text = []
+        if fname_template is not None:
+            stat_text.append(f"fname_template: {fname_template}")
         stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
         stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
 
@@ -255,7 +268,7 @@ def _add_steps(add):
 
 
 if __name__ == "__main__":
-    pipeline = RingDetector()
+    pipeline = RingDetector(fname_template)
     stat_text, good_coordinates, bad_coordinates, all_coordinates, stat_image = pipeline.run(
         ['stat_text', 'good_coordinates', 'bad_coordinates', 'all_coordinates', 'stat_image'],
         add_to_img5 if interactive else None
