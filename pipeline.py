@@ -169,7 +169,7 @@ def _add_steps(add, fname_template=None, chread=None):
     def calc(DsRed, GFP):
         stat_text = []
         if fname_template is not None:
-            stat_text.append(f"fname_template: {fname_template}")
+            stat_text.append(f"fname_template: {fname_template}\n")
         stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
         stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
 

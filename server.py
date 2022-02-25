@@ -51,10 +51,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 for message in msgs_to_send:
                     await ws.send(message)
 
-            asyncio.run_coroutine_threadsafe(send_msgs(), mainloop)
-            # TODO use queue
-
-        ring_detector = RingDetector(chread)
+        ring_detector = RingDetector(fname_template)
         thread = Thread(target=ring_detector.run, kwargs={'cb': cb})
         mainloop = asyncio.get_running_loop()
 
