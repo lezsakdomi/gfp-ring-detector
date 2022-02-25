@@ -45,15 +45,15 @@ and analyzes the `*_c<channel num>.tif` files
 
 - [ ] **TODO** Estimate finishing time
 - [ ] **TODO** Communicate between parallel instances
-- [ ] **TODO** Ability to spawn sub-processes automatically
+- [x] **TODO** Ability to spawn sub-processes automatically
 
 #### Arguments
 
 1. `NUM_INSTANCES` \[optional]  
-   Number of threads this script was started **manually**. 
-   The script does not spawn sub-processes but is designed
-   to be started more times in parallel.
-2. `INSTANCE_ID` \[mandatory if `NUM_INSTANCES` specified]  
+   Number of threads this script starts or was started **manually**. 
+   If you'd like to make the script start multiple threads of itself,
+   omit `INSTANCE_ID`
+2. `INSTANCE_ID` \[optional]  
    An unique number between 1 and `NUM_INSTANCES`. The script will
    ignore all except every `NUM_INSTANCES`th file, this argument
    specifies which to process.
