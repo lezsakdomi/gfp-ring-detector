@@ -24,6 +24,14 @@ class Step:
         self._inputs = on or tuple(inspect.signature(func).parameters.keys())
         self._outputs = of or inspect.signature(func).return_annotation
         # TODO check if arguments OK
+        self._last_started = None
+        self._last_started_pc = None
+        self._last_finished = None
+        self._last_finished_pc = None
+        self._last_profile_duration = None
+        self._last_input = None
+        self._last_output = None
+        self._last_error = None
         self._started = Event()
         self._finished = Event()
         self._completed = Event()
@@ -31,6 +39,20 @@ class Step:
 
     def clone(self):
         return Step(self._func, self._name, self._inputs, self._outputs)
+
+    def _clean(self):
+        self._last_started = None
+        self._last_started_pc = None
+        self._last_finished = None
+        self._last_finished_pc = None
+        self._last_profile_duration = None
+        self._last_input = None
+        self._last_output = None
+        self._last_error = None
+        self._started.clear()
+        self._finished.clear()
+        self._completed.clear()
+        self._errored.clear()
 
     @property
     def name(self):
@@ -47,19 +69,6 @@ class Step:
         else:
             return self._outputs
 
-    _last_started = None
-    _last_started_pc = None
-    _last_finished = None
-    _last_finished_pc = None
-    _last_profile_duration = None
-    _last_input = None
-    _last_output = None
-    _last_error = None
-    _started = None
-    _finished = None
-    _completed = None
-    _errored = None
-
     @property
     def last_input(self):
         return dict(zip(self.inputs, self._last_input))
@@ -72,20 +81,6 @@ class Step:
             return {self._outputs: self._last_output}
         else:
             return dict(zip(self.outputs, self._last_output))
-
-    def _clean(self):
-        self._last_started = None
-        self._last_started_pc = None
-        self._last_finished = None
-        self._last_finished_pc = None
-        self._last_profile_duration = None
-        self._last_input = None
-        self._last_output = None
-        self._last_error = None
-        self._started.clear()
-        self._finished.clear()
-        self._completed.clear()
-        self._errored.clear()
 
     def _load(self, state):
         # TODO check if in right state
@@ -135,8 +130,9 @@ class Step:
 
 
 class Pipeline:
-    steps = []
-    _sealed = False
+    def __init__(self):
+        self.steps = []
+        self._sealed = False
 
     def add_step(self, step=None, *args, **kwargs):
         if step is None:

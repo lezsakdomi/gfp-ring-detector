@@ -42,6 +42,7 @@ def chreader(fname_template: str):
 
 class RingDetector(Pipeline):
     def __init__(self, fname_template=None, chread=None):
+        super().__init__()
         _add_steps(self.add_step, fname_template, chread)
         self.seal_steps()
 
