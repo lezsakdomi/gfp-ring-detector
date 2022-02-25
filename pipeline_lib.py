@@ -132,6 +132,7 @@ class Step:
 
 class Pipeline:
     def __init__(self):
+        self.state = None
         self.steps = []
         self._sealed = False
 
@@ -147,6 +148,10 @@ class Pipeline:
             raise RuntimeError(f"Invalid step type: {type(step)}")
 
     def remove_step(self, step, index=0):
+        i = self.find_step(step, index, return_index=True)
+        del self.steps[i]
+
+    def find_step(self, step, index=0, return_index=False):
         if isinstance(step, Step):
             step = step.name
 
@@ -161,12 +166,14 @@ class Pipeline:
                 raise ValueError(f"step argument is of unexpected type ({type(step)})")
 
             if index == 0:
-                del self.steps[i]
-                return
+                if return_index:
+                    return i
+                else:
+                    return self.steps[i]
             else:
                 index = index - 1
 
-        raise IndexError(f'Step {step} was requested {index + 1} more time for deletion')
+        raise IndexError(f'Step {step} was requested to be found {index + 1} more time')
 
     def seal_steps(self):
         self._sealed = True
@@ -179,25 +186,40 @@ class Pipeline:
             clone.seal_steps()
         return clone
 
-    def run(self, outputs=[], cb=None):
-        state = {}
+    def _clean(self):
+        for step in self.steps:
+            step._clean()
+        self.state = None
+
+    def _hook(self, hook, *args, **kwargs):
+        if hook is not None:
+            hook(*args, **kwargs)
+        else:
+            self._default_hook(*args, **kwargs)
+
+    def _default_hook(self, step, finished, error, step_index, *args, **kwargs):
+        if not finished:
+            print(f"[{step_index + 1}/{len(self.steps)}] Executing step {step.name}...", end="")
+        elif error is not None:
+            print(f" ERROR")
+        else:
+            print(f" done (took {step._last_profile_duration:.3}s)")
+
+    def run(self, outputs=[], hook=None):
+        if self.state is not None:
+            raise RuntimeError("State not clean")
+
+        self.state = {}
 
         for step_index, step in enumerate(self.steps):
-            if cb is not None:
-                cb(step, pipeline=self, state=state, finished=False, completed=False, error=None, step_index=step_index)
-            else:
-                print(f"[{step_index + 1}/{len(self.steps)}] Executing step {step.name}...", end="")
+            self._hook(hook, step, pipeline=self, state=self.state, finished=False, completed=False, error=None, step_index=step_index)
 
             try:
-                step.run_on(state)
+                step.run_on(self.state)
             except Exception as e:
-                if cb is not None:
-                    cb(step, pipeline=self, state=state, finished=True, completed=False, error=e, step_index=step_index)
+                self._hook(hook, step, pipeline=self, state=self.state, finished=True, completed=False, error=e, step_index=step_index)
                 raise
 
-            if cb is not None:
-                cb(step, pipeline=self, state=state, finished=True, completed=True, error=None, step_index=step_index)
-            else:
-                print(f" done (took {step._last_profile_duration:.3}s)")
+            self._hook(hook, step, pipeline=self, state=self.state, finished=True, completed=True, error=None, step_index=step_index)
 
-        return [state[out] for out in outputs]
+        return [self.state[out] for out in outputs]

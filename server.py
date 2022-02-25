@@ -4,7 +4,7 @@ import numpy as np
 import websockets
 import asyncio
 from websockets import WebSocketServerProtocol
-from pipeline import RingDetector, chreader
+from pipeline import RingDetector
 from threading import Thread
 from urllib.parse import urlparse, unquote
 from http import HTTPStatus
@@ -45,7 +45,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 if isinstance(data, np.ndarray):
                     return f"+ IMAGE {name} {to_data_url(data)}"
                 if isinstance(data, list):
-                    joined = '\n'.join(map(str, data))
+                    joined = '\n'.join(map(lambda d: str(d).strip(), data))
                     return f"+ LIST {name} {joined}"
                 else:
                     return f"+ UNKNOWN {name} {repr(data)}"
@@ -65,8 +65,8 @@ async def handle_connection(ws: WebSocketServerProtocol):
             # needed if receiving messages
             asyncio.run_coroutine_threadsafe(send_msgs(), mainloop)
 
-        ring_detector = RingDetector(fname_template)
-        thread = Thread(target=ring_detector.run, kwargs={'cb': cb})
+        ring_detector = RingDetector(fname_template, interactive=True)
+        thread = Thread(target=ring_detector.run, kwargs={'hook': cb})
         mainloop = asyncio.get_running_loop()
 
         thread.start()
@@ -76,6 +76,10 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 file = inspect.getsourcefile(ring_detector.steps[n]._func)
                 code, line = inspect.getsourcelines(ring_detector.steps[n]._func)
                 os.system(f"pycharm --line {line} {file}")
+
+            elif msg == 'View in 5D':
+                ring_detector.view_in_5d()
+
             else:
                 print(msg)
 
@@ -100,9 +104,10 @@ async def serve(host="0.0.0.0", port=8080):
             ws.addEventListener('message', msg => console.log(msg));
             ws.addEventListener('close', reason => console.warn(reason))
             
+            const ul = document.getElementById('ul');
+            
             ws.addEventListener('message', ({data: msg}) => {
                 const [msg_, ev, det] = /^(\S+) (.*)$/s.exec(msg);
-                const ul = document.getElementById('ul');
                 const li = document.createElement('li');
                 li.dataset['source'] = 'ws-message';
                 // li.dataset['message'] = msg;
@@ -115,11 +120,12 @@ async def serve(host="0.0.0.0", port=8080):
                         const details = document.createElement('details');
                         details.innerHTML = `<summary>
                             ${ev_ !== '>' ? ev_ : ""}
-                            <b>${name}</b>${det ? ", " + det : ""},
-                            <a href="#" class="open-in-editor">Open in editor</a>
+                            <b>${name}</b>${det ? ", " + det : ""}
+                            <button class="open-in-editor">Open in editor</button>
                         </summary>`;
-                        details.querySelector('summary > .open-in-editor').addEventListener('click', () => {
+                        details.querySelector('summary > .open-in-editor').addEventListener('click', (event) => {
                             ws.send(`Open in editor #${no}`);
+                            event.preventDefault();
                         });
                         if (det && det.match('debug')) details.open = true;
                         li.appendChild(details);
@@ -189,7 +195,6 @@ async def serve(host="0.0.0.0", port=8080):
                 ul.appendChild(li);
             });
             ws.addEventListener('error', e => {
-                const ul = document.getElementById('ul');
                 const li = document.createElement('li');
                 li.dataset["source"] = 'ws-error';
                 const pre = document.createElement('pre');
@@ -198,7 +203,6 @@ async def serve(host="0.0.0.0", port=8080):
                 ul.appendChild(li);
             });
             ws.addEventListener('close', event => {
-                const ul = document.getElementById('ul');
                 const li = document.createElement('li');
                 li.dataset["source"] = 'ws-close';
                 const span = document.createElement('span');
@@ -206,6 +210,11 @@ async def serve(host="0.0.0.0", port=8080):
                 span.innerText = `Connection closed (code: ${event.code})`;
                 li.appendChild(span);
                 ul.appendChild(li);
+                
+                for (const button of ul.getElementsByTagName('button')) {
+                    button.disabled = true;
+                }
+                viewButton.disabled = true;
             });
             
             const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];
@@ -265,9 +274,21 @@ async def serve(host="0.0.0.0", port=8080):
                 imageY += (to.offsetY - from.offsetY) / imageZoom;
                 zoomRule.style.objectPosition = `${imageX}px ${imageY}px`;
             }
+            
+            const viewButton = document.createElement('button');
+            viewButton.innerText = "View in 5D Viewer";
+            viewButton.addEventListener('click', (event) => {
+                ws.send("View in 5D");
+                event.preventDefault();
+            });
+            ul.parentElement.insertBefore(viewButton, ul.nextSibling);
         })
     </script>
     <style>
+        svg {
+            display: none;
+        }
+        
         body > ul {
             list-style: none;
             margin-left: 0;
@@ -313,6 +334,10 @@ async def serve(host="0.0.0.0", port=8080):
             filter: url(#imgFilter);
             object-fit: none;
             background: gray;
+        }
+        
+        button {
+            cursor: pointer;
         }
     </style>
     
