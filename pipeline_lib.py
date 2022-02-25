@@ -18,7 +18,7 @@ class Step:
     def on(inputs):
         return functools.partial(Step, on=inputs)
 
-    def __init__(self, func, of, on=None, name=None):
+    def __init__(self, func, of, on=None, name=None, details=None):
         self._func = func
         self._name = name or func.__name__
         self._inputs = on or tuple(inspect.signature(func).parameters.keys())
@@ -36,6 +36,7 @@ class Step:
         self._finished = Event()
         self._completed = Event()
         self._errored = Event()
+        self.details = details
 
     def clone(self):
         return Step(self._func, self._name, self._inputs, self._outputs)

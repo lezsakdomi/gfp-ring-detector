@@ -145,7 +145,7 @@ def _add_steps(add, fname_template=None, chread=None):
 
         return GFP
 
-    @add
+    @add(details="being debugged")
     @Step.of(['DsRed', 'GFP'])
     # Simple hough transformation
     def hough(DsRed, GFP):
