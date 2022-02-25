@@ -12,10 +12,6 @@ if len(sys.argv) != 2:
 
 reader = bioformats.get_image_reader(42, path=sys.argv[1])
 img = reader.read(z=3)
-# img = np.dstack([
-#     io.imread('GlueRed_GFP-Ub_0h-0017_c0.tif', as_gray=True).astype('float32'),
-#     io.imread('GlueRed_GFP-Ub_0h-0017_c1.tif', as_gray=True).astype('float32'),
-# ])
 gfp = img[:, :, 1]
 kernels = []
 corr = []
