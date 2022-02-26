@@ -10,6 +10,7 @@ from urllib.parse import urlparse, unquote
 from http import HTTPStatus
 from queue import Queue
 import inspect
+import webbrowser
 
 
 async def handle_connection(ws: WebSocketServerProtocol):
@@ -659,4 +660,5 @@ async def serve(host="0.0.0.0", port=8080):
         await asyncio.Future()
 
 if __name__ == "__main__":
+    webbrowser.open("http://localhost:8080/")
     asyncio.run(serve())
