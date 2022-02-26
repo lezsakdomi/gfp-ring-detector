@@ -603,7 +603,13 @@ async def serve(host="0.0.0.0", port=8080):
         </defs>
     </svg>
 </body>
-''')
+'''.encode('utf-8'))
+
+        else:
+            return (HTTPStatus.NOT_FOUND, [('Content-Type', "text/html, charset=UTF-8")],
+                    '''
+                    Error: Document not found on the server
+                    '''.encode('utf-8'))
 
     async with websockets.serve(handle_connection, host, port, process_request=process_request):
         await asyncio.Future()
