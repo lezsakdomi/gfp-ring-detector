@@ -149,6 +149,11 @@ async def serve(host="0.0.0.0", port=8080):
             } else {
                 location.assign(hash);
             }
+            
+            const css = [...document.styleSheets].find(css => css.ownerNode.id === 'urlFeedbackCss');
+            css.rules[0].selectorText = `li[data-step=${JSON.stringify(step)}]`;
+            css.rules[1].selectorText = `details[data-step=${JSON.stringify(step)}][data-section=${JSON.stringify(section)}]`;
+            css.rules[2].selectorText = `details[data-plane=${JSON.stringify(plane)}]`;
         }
         
         function parseURL() {
@@ -249,6 +254,8 @@ async def serve(host="0.0.0.0", port=8080):
                             details.dataset['source'] = 'ws-message';
                             details.dataset['event'] = ev_;
                             details.dataset['step'] = step;
+                            details.dataset['section'] = section;
+                            li.dataset['step'] = step;
                             
                             details.innerHTML = `<summary>
                                 ${ev_ !== '>' ? ev_ : ""}
@@ -454,10 +461,14 @@ async def serve(host="0.0.0.0", port=8080):
                 let wasHandled = false;
                 
                 if (url.x != x || url.y != y) {
+                    url.step = event.target.parentElement.parentElement.dataset['step'];
+                    url.section = event.target.parentElement.parentElement.dataset['section'];
+                    url.plane = event.target.parentElement.dataset['plane'];
                     url.x = x;
                     url.y = y;
                     wasHandled = true;
                 } else if (permitReset) {
+                    url.plane = undefined;
                     url.x = undefined;
                     url.y = undefined;
                 }
@@ -470,12 +481,16 @@ async def serve(host="0.0.0.0", port=8080):
             function zoomImages(event) {
                 const oldZoom = imageZoom;
                 imageZoom += event.deltaY * -0.01;
+                if (imageZoom < 0.1) imageZoom = 0.1;
                 const width = realImageW / imageZoom;
                 const height = realImageH / imageZoom;
                 
                 zoomRule.style.zoom = imageZoom;
                 zoomRule.style.width = width + 'px';
                 zoomRule.style.height = height + 'px';
+                zoomRule.style.borderWidth = 5 / imageZoom + 'px';
+                document.getElementById('imgFilterCrossV').width.baseVal.value = 1 / imageZoom;
+                document.getElementById('imgFilterCrossH').height.baseVal.value = 1 / imageZoom;
                 
                 if (event.preventDefault) {
                     event.preventDefault();
@@ -501,11 +516,16 @@ async def serve(host="0.0.0.0", port=8080):
         })
     </script>
     <style>
+        body, button {
+            background: black;
+            color: white;
+        }
+        
         svg {
             display: none;
         }
         
-        body > ul {
+        #ul {
             list-style: none;
             margin-left: 0;
         }
@@ -546,14 +566,20 @@ async def serve(host="0.0.0.0", port=8080):
         }
     
         details[data-type="IMAGE"] > img {
-            cursor: none;
             filter: url(#imgFilter);
             object-fit: none;
-            background: gray;
+            background: #222;
+            border: 20px solid black;
+        }
+        
+        details[data-type="IMAGE"] > img:hover {
+            cursor: none;
+            border-color: blue;
         }
         
         button {
             cursor: pointer;
+            background: darkgreen;
         }
     </style>
     
@@ -563,6 +589,20 @@ async def serve(host="0.0.0.0", port=8080):
             height: 1040px;
             zoom: 0.25;
             object-position: 0 0;
+        }
+    </style>
+    
+    <style id="urlFeedbackCss">
+        li[data-step=""] {
+            background: rgba(0, 0, 64, 0.75);
+        }
+        
+        details[data-step=""][data-section=""] {
+            background: rgba(16, 16, 128, 0.5);
+        }
+        
+        details[data-plane=""] {
+            background: rgba(64, 64, 128, 0.5);
         }
     </style>
 </head>
@@ -587,7 +627,7 @@ async def serve(host="0.0.0.0", port=8080):
                                        0 0 0 1 0"/>
                 <feColorMatrix in="SourceGraphic" type="matrix"
                                id="imgFilterDefCross" result="imgFilterDefCross"
-                               width="4" height="4" x="-10" y="-10"
+                               width="1" height="1" x="0" y="0"
                                values="-1 0 0 0 1 
                                        0 -1 0 0 1 
                                        0 0 -1 0 1
