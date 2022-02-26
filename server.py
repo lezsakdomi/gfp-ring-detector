@@ -581,6 +581,10 @@ async def serve(host="0.0.0.0", port=8080):
             cursor: pointer;
             background: darkgreen;
         }
+        
+        :focus {
+            outline: none;
+        }
     </style>
     
     <style id="zoomCss">
