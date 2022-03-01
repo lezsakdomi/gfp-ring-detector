@@ -1,0 +1,69 @@
+body, button {
+    background: black;
+    color: white;
+}
+
+svg {
+    display: none;
+}
+
+#ul {
+    list-style: none;
+    margin-left: 0;
+}
+
+li[data-source='ws-message']:not([data-event=">"]) {
+    padding-left: 0.25em;
+    margin-left: 0.25em;
+    border-left: 1px solid gray;
+}
+
+li[data-event="COMPLETED"] > details {
+    margin-bottom: 1em;
+}
+
+li > pre {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+li > details {
+    padding-left: 1em;
+}
+
+li > details > summary {
+    margin-left: -1em;
+}
+
+details > details {
+    display: inline-block;
+    vertical-align: top;
+}
+
+details > details:not([open]) {
+    writing-mode: vertical-lr;
+    margin-top: 4px;
+    margin-left: -4px;
+    margin-right: 4px;
+}
+
+details[data-type="IMAGE"] > img {
+    filter: url(#imgFilter);
+    object-fit: none;
+    background: #222;
+    border: 20px solid black;
+}
+
+details[data-type="IMAGE"] > img:hover {
+    cursor: none;
+    border-color: blue;
+}
+
+button {
+    cursor: pointer;
+    background: darkgreen;
+}
+
+:focus {
+    outline: none;
+}
