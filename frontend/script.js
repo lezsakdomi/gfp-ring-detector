@@ -103,14 +103,14 @@ function parseURL() {
     return o;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const url = new Proxy(parseURL(), {
-        set(target, p, value, receiver) {
-            target[p] = value;
-            setUrl(target);
-        }
-    });
+const url = new Proxy(parseURL(), {
+    set(target, p, value, receiver) {
+        target[p] = value;
+        setUrl(target);
+    }
+});
 
+document.addEventListener('DOMContentLoaded', () => {
     if (url.zoom) {
         const diff = url.zoom - imageZoom;
         const deltaY = diff / -0.01;
@@ -354,10 +354,6 @@ function hideCrosshairs(event) {
         imgFilterCrossH.result.baseVal = 'none';
     }
     imgFilterDefCross.result.baseVal = 'none';
-
-    if (url.zoom !== imageZoom) {
-        url.zoom = imageZoom;
-    }
 }
 
 function setDefaultCrosshairs(event, permitReset = true) {
@@ -408,6 +404,12 @@ function zoomImages(event) {
         }, event);
 
         updateCrosshairs(event);
+    }
+
+    const urlZoom = imageZoom.toPrecision(2);
+    if (url.zoom !== urlZoom) {
+        clearTimeout(zoomImages.urlSetTimeoutHandle);
+        zoomImages.urlSetTimeoutHandle = setTimeout(() => url.zoom = urlZoom, 100);
     }
 }
 
