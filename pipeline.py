@@ -30,11 +30,15 @@ class RingDetector(Pipeline):
                 images5.append([img])
             self._img5.append(images5)
 
-    def __init__(self, fname_template=None, chread=None, interactive=False):
+    def __init__(self, fname_template=None, chread=None, interactive=False,
+                 membrane_planes=('GFP',), granule_planes=('DsRed',)):
         super().__init__()
         self.seal_steps()
         self._img5 = []
         self._interactive = interactive
+
+        membrane_planes = list(membrane_planes)
+        granule_planes = list(granule_planes)
 
         if chread is None:
             chread = chreader(fname_template)
@@ -69,13 +73,19 @@ class RingDetector(Pipeline):
             from skimage.morphology import erosion, dilation, disk
             from skimage.filters import threshold_local
 
-            # Regions in GFP under granules can't be considered meaningful, masking them out to NaN
-            GFP[erosion(DsRed, disk(2)) > threshold_local(erosion(DsRed, disk(2)), 19, 'median')] = np.nan
+            membrane_images = list(inputs[:len(membrane_planes)])
+            granule_images = list(inputs[len(membrane_images):])
 
-            # Extracting the granule membranes
-            DsRed = dilation(DsRed, disk(3)) - erosion(DsRed, disk(1))
+            for img in membrane_images:
+                # Regions in GFP under granules can't be considered meaningful, masking them out to NaN
+                img[erosion(DsRed, disk(2)) > threshold_local(erosion(DsRed, disk(2)), 19, 'median')] = np.nan
 
-            return DsRed, GFP
+            for i in range(len(granule_images)):
+                img = granule_images[i]
+                # Extracting the granule membranes
+                granule_images[i] = dilation(img, disk(3)) - erosion(img, disk(1))
+
+            return membrane_images + granule_images
 
         # TODO skip this step for more accuracy
         #      needs replacing hough_circle with custom algo
