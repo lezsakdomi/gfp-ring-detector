@@ -79,60 +79,20 @@ class RingDetector(Pipeline):
             from skimage.feature import peak_local_max
             import numpy as np
             return peak_local_max(DsRed, min_distance=15,
-                                  threshold_abs=np.average(DsRed))
+                                  threshold_abs=0.6)
 
         @self.add_step
-        @Step.of(['DsRed'])
-        # Extracting circular features - converting disks to circles
-        def circlize(DsRed):
-            from skimage.morphology import dilation, disk
-            from skimage.filters import threshold_local
-            from skimage.feature import canny
+        @Step.of(['DsRed', 'DAPI'])
+        def flood(DsRed, all_coordinates):
+            from custom_algo import multi_flood
+            labels, distances, counts = multi_flood(DsRed, all_coordinates, mask=DsRed > 0.5)
+            distances = distances - 1
+            labels[distances == -1] = -1
+            return labels, distances
 
-            # Extracting the granule membranes
-            # DsRed = dilation(DsRed, disk(3)) - DsRed
-            # DsRed = dilation(DsRed, disk(3)) - DsRed
-            canny = canny(DsRed, sigma=2)
-            DsRed = np.zeros_like(DsRed)
-            DsRed[canny] = 1
-
-            return DsRed,
-
-        @self.add_step
-        @Step.of(['DsRed'])
-        def morphology(DsRed):
-            from skimage.morphology import erosion, dilation, disk
-
-            DsRed = dilation(DsRed, disk(3))
-            for i in range(2):
-                DsRed = erosion(DsRed, disk(1))
-
-            return DsRed,
-
-        # @self.add_step
-        # @Step.of(['DsRed', 'GFP'])
-        # def binarize(DsRed, GFP):
-        #     from skimage.util import img_as_ubyte
-        #     from skimage.filters.rank import minimum, percentile
-        #     from skimage.morphology import disk, erosion, dilation
-        #     import numpy as np
-        #
-        #     DsRed = img_as_ubyte(DsRed)
-        #     DsRed_bin = np.ones_like(DsRed, dtype=float)
-        #     DsRed_bin[DsRed < percentile(DsRed, disk(5), p0=0.5)] = 0.5
-        #     DsRed_bin[DsRed < percentile(DsRed, disk(5), p0=0.25)] = 0.25
-        #     DsRed_bin[DsRed == minimum(DsRed, disk(5))] = 0
-        #
-        #     GFP = img_as_ubyte(GFP)
-        #     GFP_bin = np.zeros_like(GFP, dtype=float)
-        #     GFP_bin[GFP > percentile(GFP, disk(10), p0=0.75)] = 1
-        #
-        #     return DsRed_bin, GFP_bin
-        #
         @self.add_step
         @Step.of(['good_coordinates', 'bad_coordinates', 'DsRed', 'GFP'])
-        def flood(all_coordinates, DsRed, GFP):
-            from skimage.segmentation import flood
+        def extract_coordinates(all_coordinates, DsRed, GFP):
             from skimage.morphology import disk, dilation, erosion, skeletonize, thin
             from skimage.util import img_as_float, img_as_ubyte
             from skimage.filters.rank import percentile
@@ -143,35 +103,66 @@ class RingDetector(Pipeline):
             bad_coordinates = []
             bad_floods = np.zeros_like(DsRed)
             good_floods = np.zeros_like(DsRed)
+            all_floods = np.zeros_like(DsRed)
             rings_searched = np.zeros_like(DsRed)
-            print('.' * (len(all_coordinates) // 10 - len("[x/x] Executing step flood...")))
-            i = 0
-            for coord in all_coordinates:
-                i += 1
+            print('.' * (len(all_coordinates) // 10 - len("[x/x] Executing step extract_coordinates...") + 1))
+            for i, coord in enumerate(all_coordinates):
                 if i % 10 == 0:
                     print('.', end='')
                 x, y = coord
                 if bad_floods[x, y]:
                     bad_coordinates.append(coord)
                 else:
-                    # current_flood = flood(DsRed, (x, y), connectivity=3, tolerance=0.1)
-                    current_flood = flood(DsRed, (x, y), tolerance=0.05, connectivity=3)
+                    current_flood = DsRed == i
                     masked = np.zeros_like(DsRed, dtype=float)
                     masked[current_flood] = 1
-                    if np.sum(masked) >= 15 * 15 * 3.14:
+
+                    w = 20
+                    h = 20
+
+                    if x < w or x+w >= DsRed.shape[0] or y < h or y + h >= DsRed.shape[1]:
                         continue
 
-                    inner_avg = np.average(GFP[masked > 0])
+                    def clip(large):
+                        clipped = np.zeros((2*w, 2*h), dtype=large.dtype)
+                        clipped[0:2*w, 0:2*h] = large[x-w:x+w, y-h:y+h]
+                        return clipped
+
+                    def unclip(clipped, background=None):
+                        if background is None:
+                            background = np.zeros_like(DsRed, dtype=clipped.dtype)
+                        else:
+                            background = np.copy(background)
+                        background[x-w:x+w, y-h:y+h] = clipped[0:2*w, 0:2*h]
+                        return background
+
+                    # print()
+                    # print(f"({x},___) --> ({np.average(np.arange(0, masked.shape[0])[masked[:, y] > 0])},{y})")
+                    # print(f"(___,{y}) --> ({x},{np.average(np.arange(0, masked.shape[1])[masked[x, :] > 0])})")
+
+                    masked = clip(masked)
+                    all_floods[unclip(masked) > 0] = 1
+
+                    # inner_avg = np.average(GFP[unclip(masked) > 0])
 
                     masked = dilation(masked, disk(3))
                     masked = dilation(masked, disk(3)) - masked
-                    ring_avg = np.average(GFP[masked > 0])
+                    # ring_avg = np.average(GFP[unclip(masked) > 0])
 
-                    masked = np.minimum(GFP, masked)
-                    masked = masked > th
+                    masked = np.minimum(clip(GFP), masked)
+                    masked = masked > clip(th)
+
+                    rings_searched[unclip(masked) > 0] = 1
+                    # rings_searched = unclip(masked, rings_searched)
+
+                    if masked.size == 0:
+                        bad_coordinates.append(coord)
+                        # not touching bad_floods
+                        continue
+
                     masked = thin(masked)
                     count = np.sum(masked)
-                    rings_searched[masked > 0] = count
+                    rings_searched[unclip(masked) > 0] = count
 
                     if count > 30:
                         good_coordinates.append(coord)
@@ -180,7 +171,7 @@ class RingDetector(Pipeline):
                         bad_coordinates.append(coord)
                         bad_floods[current_flood] = 1
 
-            return good_coordinates, bad_coordinates, good_floods + bad_floods, rings_searched
+            return good_coordinates, bad_coordinates, all_floods, rings_searched
 
         @self.add_step
         @Step.of('stat_text')
@@ -243,8 +234,14 @@ class RingDetector(Pipeline):
 
         import NanoImagingPack
 
-        viewer = NanoImagingPack.v5(np.array(img5), multicol=True if step is None else None)
-        viewer.ProcessKeys(commands)
+        # Show captured step-intermediate images using View 5D
+        viewer = NanoImagingPack.v5(np.array(self._img5), multicol=True)
+        # note: using img4 instead of img5 is a good idea
+
+        # Navigate to the output of step 1 and initialize exposure
+        viewer.ProcessKeys(',,,T')
+
+        # Displaying the coordinates
 
         import javabridge as jb
 
@@ -261,7 +258,7 @@ class RingDetector(Pipeline):
                     result.append(np.array([t, 0, 0, coord[0], coord[1]]))
             return result
 
-        if self.find_step('flood')._completed.is_set():
+        if self.find_step('extract_coordinates')._completed.is_set():
             # Pushing the coordinates to the user interface (good -> List1, bad -> List2)
             viewer.setMarkers(f(self.state['good_coordinates']), 1)
             viewer.setMarkers(f(self.state['bad_coordinates']), 2)
