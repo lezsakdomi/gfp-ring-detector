@@ -42,6 +42,8 @@ function setUrl({page, fnameTemplate, step, section, plane, x, y, zoom}) {
                 if (plane) add(plane); else break;
                 break;
         }
+    } else {
+        add('', {x, y, zoom});
     }
 
     hash = hash || '#';
@@ -220,40 +222,7 @@ function analyze(url, ul) {
                 // details.dataset['data'] = data;
                 switch (dataType) {
                     case 'IMAGE':
-                        const img = document.createElement('img');
-                        let dragStarted;
-                        let dragHandled;
-                        img.src = data;
-                        img.addEventListener('mousemove', updateCrosshairs);
-                        img.addEventListener('mouseenter', showCrosshairs);
-                        img.addEventListener('mouseleave', hideCrosshairs);
-                        img.addEventListener('mousewheel', zoomImages);
-                        img.addEventListener('dragstart', event => event.preventDefault());
-                        img.addEventListener('mousedown', (event) => {
-                            dragStarted = event;
-                            // dragHandled = setDefaultCrosshairs(event, false);
-                            dragHandled = false;
-                        });
-                        img.addEventListener('mousemove', (event) => {
-                            if (dragStarted) {
-                                moveImages(dragStarted, event);
-                                dragStarted = event;
-                                dragHandled = true;
-                            }
-                        });
-                        img.addEventListener('mouseup', (event) => {
-                            if (dragStarted) {
-                                moveImages(dragStarted, event);
-                                if (!dragHandled) {
-                                    setDefaultCrosshairs(event, true);
-                                }
-                                dragStarted = undefined;
-                            }
-                        });
-                        img.addEventListener('mouseleave', () => {
-                            dragStarted = undefined;
-                        });
-                        details.appendChild(img);
+                        createImg(details, data);
                         break;
 
                     case 'UNKNOWN':
@@ -323,27 +292,74 @@ function listTargets(url, ul) {
         keys: ['path'],
     });
 
-    function addItem(o) {
+    function createItem(ul, o) {
         const li = ul.appendChild(document.createElement('li'));
         const details = li.appendChild(document.createElement('details'));
         const summary = details.appendChild(document.createElement('summary'));
         const a = summary.appendChild(document.createElement('a'));
         a.innerText = o.path;
         a.href = `#analyze#${encodeURIComponent(o.fnameTemplate)}`;
-        a.addEventListener('click', () => {
-            location.assign(`${location.hash}#analyze#${encodeURIComponent(o.fnameTemplate)}`);
+        a.addEventListener('click', event => {
+            event.preventDefault();
+            url.page = 'analyze';
+            url.fnameTemplate = o.fnameTemplate;
             location.reload();
         })
-        const img = details.appendChild(document.createElement('img'));
-        img.src = `${o.path}/composite.jpg`;
+        details.dataset['type'] = 'IMAGE';
+        createImg(details, `${o.path}/composite.jpg`);
+        return li;
     }
 
     ws.addEventListener('message', ({data: msg}) => {
         const o = JSON.parse(msg)
         console.log(o);
         fuse.add(o);
-        addItem(o);
+        createItem(ul, o);
     });
+}
+
+function createImg(details, src) {
+    if (details.dataset['type'] !== 'IMAGE') {
+        console.warn('Tried to create an image on a non-image details:', details, src);
+    }
+
+    const img = document.createElement('img');
+    let dragStarted;
+    let dragHandled;
+    img.src = src;
+    img.addEventListener('mousemove', updateCrosshairs);
+    img.addEventListener('mouseenter', showCrosshairs);
+    img.addEventListener('mouseleave', hideCrosshairs);
+    img.addEventListener('mousewheel', zoomImages);
+    img.addEventListener('dragstart', event => event.preventDefault());
+    img.addEventListener('mousedown', (event) => {
+        dragStarted = event;
+        // dragHandled = setDefaultCrosshairs(event, false);
+        dragHandled = false;
+    });
+    img.addEventListener('mousemove', (event) => {
+        if (dragStarted) {
+            moveImages(dragStarted, event);
+            dragStarted = event;
+            dragHandled = true;
+        }
+    });
+    img.addEventListener('mouseup', (event) => {
+        if (dragStarted) {
+            moveImages(dragStarted, event);
+            if (!dragHandled) {
+                setDefaultCrosshairs(event, true);
+            }
+            dragStarted = undefined;
+        }
+    });
+    img.addEventListener('mouseleave', () => {
+        dragStarted = undefined;
+    });
+
+    details.appendChild(img);
+
+    return img;
 }
 
 const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];
@@ -403,9 +419,13 @@ function setDefaultCrosshairs(event, permitReset = true) {
     let wasHandled = false;
 
     if (url.x != x || url.y != y) {
-        url.step = event.target.parentElement.parentElement.dataset['step'];
-        url.section = event.target.parentElement.parentElement.dataset['section'];
-        url.plane = event.target.parentElement.dataset['plane'];
+        try {
+            url.step = event.target.parentElement.parentElement.dataset['step'];
+            url.section = event.target.parentElement.parentElement.dataset['section'];
+            url.plane = event.target.parentElement.dataset['plane'];
+        } catch (e) {
+            console.warn(e);
+        }
         url.x = x;
         url.y = y;
         wasHandled = true;
