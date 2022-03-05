@@ -148,7 +148,12 @@ function handleUrl(url) {
             analyze(url, document.getElementById('ul'));
             break;
 
+        case null:
+            listTargets(url, document.getElementById('ul'));
+            break;
+
         default:
+            console.log(url.page);
             url.page = 'analyze';
             handleUrl(url);
     }
@@ -303,6 +308,42 @@ function analyze(url, ul) {
         event.preventDefault();
     });
     ul.parentElement.insertBefore(viewButton, ul.nextSibling);
+}
+
+function listTargets(url, ul) {
+    const wsUrl = new URL('list', location.href);
+    wsUrl.protocol = 'ws';
+    const ws = new WebSocket(wsUrl.toString());
+    ws.addEventListener('error', e => console.error(e));
+    // ws.addEventListener('message', msg => console.log(msg));
+    ws.addEventListener('close', reason => console.warn(reason));
+    
+    const fuse = new Fuse([], {
+        useExtendedSearch: true,
+        keys: ['path'],
+    });
+
+    function addItem(o) {
+        const li = ul.appendChild(document.createElement('li'));
+        const details = li.appendChild(document.createElement('details'));
+        const summary = details.appendChild(document.createElement('summary'));
+        const a = summary.appendChild(document.createElement('a'));
+        a.innerText = o.path;
+        a.href = `#analyze#${encodeURIComponent(o.fnameTemplate)}`;
+        a.addEventListener('click', () => {
+            location.assign(`${location.hash}#analyze#${encodeURIComponent(o.fnameTemplate)}`);
+            location.reload();
+        })
+        const img = details.appendChild(document.createElement('img'));
+        img.src = `${o.path}/composite.jpg`;
+    }
+
+    ws.addEventListener('message', ({data: msg}) => {
+        const o = JSON.parse(msg)
+        console.log(o);
+        fuse.add(o);
+        addItem(o);
+    });
 }
 
 const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];

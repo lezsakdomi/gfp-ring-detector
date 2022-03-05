@@ -88,6 +88,19 @@ async def handle_connection(ws: WebSocketServerProtocol):
             else:
                 print(msg)
 
+    if path == '/list':
+        from list_targets import walk
+        from json import dumps
+
+        for image in walk():
+            json = dumps({
+                'fnameTemplate': image.fname_template,
+                'name': image.name,
+                'path': image.path,
+                'stats': image.stats
+            })
+            await ws.send(json)
+
     else:
         await ws.close(4001)
 
@@ -96,6 +109,8 @@ async def serve(host="0.0.0.0", port=8080):
     async def process_request(path, request_headers):
         if 'Upgrade' in request_headers and request_headers['Upgrade'] == 'websocket':
             return None
+
+        path = unquote(path)
 
         frontend_dir = os.path.dirname(__file__) + '/frontend'
         frontend_path = frontend_dir + path
@@ -153,6 +168,30 @@ async def serve(host="0.0.0.0", port=8080):
             traceback.print_exc()
             return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
                b'Server error'
+
+        if path.startswith('/képek/') and '..' not in path:
+            try:
+                with open('./' + path, 'rb') as f:
+                    data = f.read()
+                response_headers = []
+                mime, encoding = mimetypes.guess_type(frontend_path)
+
+                if mime is not None:
+                    response_headers.append(('Content-Type', mime))
+                if encoding is not None:
+                    response_headers.append(('Content-Encoding', encoding))
+
+                return HTTPStatus.OK, response_headers, data
+            except FileNotFoundError:
+                return HTTPStatus.NOT_FOUND, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'The requested data file was not found on the server'
+            except PermissionError:
+                return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'Not permitted to open this location'
+            except Exception:
+                traceback.print_exc()
+                return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'Server error'
 
         return HTTPStatus.NOT_FOUND, [('Content-Type', "text/plain, charset=UTF-8")], \
            b'The requested resource was not found on the server'
