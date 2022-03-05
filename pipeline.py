@@ -17,7 +17,7 @@ class RingDetector(Pipeline):
     def _add_to_img5(self, step, pipeline, state, completed=False, step_index=0, *args, **kwargs):
         import numpy as np
 
-        outputs = ['GFP', 'DsRed', 'DAPI']
+        outputs = ['DsRed', 'GFP', 'DAPI']
         shape = (1040, 1388)
 
         if completed:
@@ -45,9 +45,9 @@ class RingDetector(Pipeline):
         @self.add_step
         @Step.of(['DsRed', 'GFP', 'DAPI'])
         def load():
-            DsRed = chread(0)
-            GFP = chread(1)
-            DAPI = chread(2)
+            DsRed = chread(1)
+            GFP = chread(2)
+            DAPI = chread(0)
 
             return DsRed, GFP, DAPI
 
