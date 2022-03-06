@@ -126,7 +126,7 @@ async def serve(host="0.0.0.0", port=8080):
                     result = "<ul>\n"
                     for entry in os.scandir(path):
                         result += f'<li><a href="{html.escape(entry.name)}">'
-                        if entry.is_link():
+                        if entry.is_symlink():
                             result += html.escape(entry.name) + '@'
                         elif entry.is_file():
                             result += html.escape(entry.name)
