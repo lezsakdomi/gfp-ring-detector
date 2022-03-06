@@ -75,17 +75,19 @@ class RingDetector(Pipeline):
 
         @self.add_step
         @Step.of('all_coordinates')
-        def find_granules(DsRed):
+        def find_granule_centers(DsRed):
             from skimage.feature import peak_local_max
             import numpy as np
-            return peak_local_max(DsRed, min_distance=15,
-                                  threshold_abs=0.6)
+            coordinates = peak_local_max(DsRed, min_distance=15,
+                                         threshold_abs=0.6)
+            return list(coordinates)
 
         @self.add_step
-        @Step.of(['DsRed', 'DAPI'])
-        def flood(DsRed, all_coordinates):
+        @Step.of(['DsRed', 'distances'])
+        def flood_granule_areas(DsRed, all_coordinates):
             from custom_algo import multi_flood
-            labels, distances, counts = multi_flood(DsRed, all_coordinates, mask=DsRed > 0.5)
+            import numpy as np
+            labels, distances, counts = multi_flood(DsRed, np.array(all_coordinates), mask=DsRed > 0.5)
             distances = distances - 1
             labels[distances == -1] = -1
             return labels, distances
@@ -110,8 +112,8 @@ class RingDetector(Pipeline):
             return GFP - th,
 
         @self.add_step
-        @Step.of(['good_coordinates', 'bad_coordinates', 'DsRed', 'GFP'])
-        def extract_coordinates(all_coordinates, DsRed, GFP):
+        @Step.of(['rings_searched', 'rings_found', 'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
+        def analyze_coordinates(all_coordinates, DsRed, GFP):
             from skimage.morphology import disk, dilation, erosion, skeletonize, thin
             import numpy as np
 
@@ -121,6 +123,7 @@ class RingDetector(Pipeline):
             good_floods = np.zeros_like(DsRed)
             all_floods = np.zeros_like(DsRed)
             rings_searched = np.zeros_like(DsRed)
+            rings_found = np.zeros_like(DsRed)
             print('.' * (len(all_coordinates) // 10 - len("[x/x] Executing step extract_coordinates...") + 1))
             for i, coord in enumerate(all_coordinates):
                 if i % 10 == 0:
@@ -163,13 +166,11 @@ class RingDetector(Pipeline):
 
                     masked = dilation(masked, disk(3))
                     masked = dilation(masked, disk(3)) - masked
+                    rings_searched[unclip(masked) > 0] = 1
                     # ring_avg = np.average(GFP[unclip(masked) > 0])
 
                     masked = np.minimum(clip(GFP), masked)
-                    masked = masked > clip(th)
-
-                    rings_searched[unclip(masked) > 0] = 1
-                    # rings_searched = unclip(masked, rings_searched)
+                    masked = masked > 0
 
                     if masked.size == 0:
                         bad_coordinates.append(coord)
@@ -178,7 +179,7 @@ class RingDetector(Pipeline):
 
                     masked = thin(masked)
                     count = np.sum(masked)
-                    rings_searched[unclip(masked) > 0] = count
+                    rings_found[unclip(masked) > 0] = count
 
                     if count > 30:
                         good_coordinates.append(coord)
@@ -187,7 +188,7 @@ class RingDetector(Pipeline):
                         bad_coordinates.append(coord)
                         bad_floods[current_flood] = 1
 
-            return good_coordinates, bad_coordinates, all_floods, rings_searched
+            return rings_searched, rings_found, good_coordinates, good_floods, bad_coordinates, bad_floods
 
         @self.add_step
         @Step.of('stat_text')
