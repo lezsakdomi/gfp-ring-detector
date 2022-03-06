@@ -47,16 +47,32 @@ details > details:not([open]) {
     margin-right: 4px;
 }
 
-details[data-type="IMAGE"] > img {
+details[data-type="IMAGE"] > img, details[data-type="target"] > img {
     filter: url(#imgFilter);
     object-fit: none;
     background: #222;
     border: 20px solid black;
 }
 
-details[data-type="IMAGE"] > img:hover {
+details[data-type="IMAGE"] > img, details[data-type="target"] > img:hover {
     cursor: none;
     border-color: blue;
+}
+
+details[data-type="target"] > summary {
+    padding: 5px;
+}
+
+details[data-type="target"] > summary > a {
+    color: white;
+    text-decoration: none;
+    background: darkgreen;
+    font-family: monospace;
+    padding: 5px;
+}
+
+details[data-type="target"] > summary > a:visited {
+    font-style: italic;
 }
 
 button {

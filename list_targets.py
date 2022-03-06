@@ -28,6 +28,8 @@ class Target:
                     k = k[0].lower() + k[1:]
                     v = stat_line_re_match.group('value')
                     self.stats[k] = v
+        else:
+            self.stats = None
 
     def __str__(self):
         return f"Image {self.name} ({self.path})"

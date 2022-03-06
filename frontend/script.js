@@ -303,13 +303,37 @@ function listTargets(url, ul) {
     input.placeholder = 'Search';
     input.addEventListener('input', runSearch);
 
+    const span = ul.parentElement.insertBefore(document.createElement('span'), ul);
+
     function runSearch() {
         for (const {li} of fuse.getIndex().docs) {
             li.style.display = 'none';
         }
         const query = input.value;
-        for (const {li} of query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs) {
+        const items = query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs;
+        for (const {li} of items) {
             li.style.display = 'inherit';
+        }
+
+        span.innerText = `${items.length} results`;
+
+        if (items.length) {
+            const sorted = [...items]
+                .filter(item => item.stats)
+                .sort((a, b) => {
+                    return parseFloat(a.stats.ratio) - parseFloat(b.stats.ratio);
+                })
+                .map(o => {
+                    return parseFloat(o.stats.ratio);
+                });
+
+            p0 = Math.round(sorted[0] * 100) + '%';
+            p25 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.25)] * 100) + '%';
+            p50 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.5)] * 100) + '%';
+            p75 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.75)] * 100) + '%';
+            p100 = Math.round(sorted[sorted.length - 1] * 100) + '%';
+
+            span.innerText += `, ${p0}--[${p25} |${p50}| ${p75}]--${p100}`;
         }
     }
 
@@ -330,7 +354,15 @@ function listTargets(url, ul) {
             url.fnameTemplate = o.fnameTemplate;
             location.reload();
         })
-        details.dataset['type'] = 'IMAGE';
+        if (o.stats) {
+            const progress = summary.appendChild(document.createElement('progress'));
+            progress.value = o.stats.ratio;
+            progress.style.marginLeft = '1em';
+            const span = summary.appendChild(document.createElement('span'));
+            span.innerText = `${Math.round(parseFloat(o.stats.ratio) * 100)}% (${o.stats['hit count']} + ${o.stats['miss count']} = ${o.stats['count']})`;
+            span.style.marginLeft = '1em';
+        }
+        details.dataset['type'] = 'target';
         createImg(details, `${o.path}/composite.jpg`);
         return li;
     }
