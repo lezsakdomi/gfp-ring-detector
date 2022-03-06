@@ -299,8 +299,23 @@ function listTargets(url, ul) {
         keys: ['path'],
     });
 
+    const input = ul.parentElement.insertBefore(document.createElement('input'), ul);
+    input.placeholder = 'Search';
+    input.addEventListener('input', runSearch);
+
+    function runSearch() {
+        for (const {li} of fuse.getIndex().docs) {
+            li.style.display = 'none';
+        }
+        const query = input.value;
+        for (const {li} of query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs) {
+            li.style.display = 'inherit';
+        }
+    }
+
     function createItem(ul, o) {
         const li = ul.appendChild(document.createElement('li'));
+        o.li = li;
         const details = li.appendChild(document.createElement('details'));
         details.addEventListener('defaultCrosshairsSet', event => {
             url.fnameTemplate = o.fnameTemplate;
