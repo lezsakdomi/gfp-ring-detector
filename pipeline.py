@@ -125,8 +125,8 @@ class RingDetector(Pipeline):
                     masked = np.zeros_like(DsRed, dtype=float)
                     masked[current_flood] = 1
 
-                    w = 20
-                    h = 20
+                    w = 35
+                    h = 35
 
                     if x < w or x+w >= DsRed.shape[0] or y < h or y + h >= DsRed.shape[1]:
                         continue
