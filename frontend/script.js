@@ -187,6 +187,10 @@ function analyze(url, ul) {
                 details.dataset['event'] = ev_;
                 details.dataset['step'] = step;
                 details.dataset['section'] = section;
+                details.addEventListener('defaultCrosshairsSet', event => {
+                    url.step = step;
+                    url.section = section;
+                })
                 li.dataset['step'] = step;
 
                 details.innerHTML = `<summary>
@@ -219,6 +223,9 @@ function analyze(url, ul) {
                 details.dataset['event'] = ev;
                 details.dataset['type'] = dataType;
                 details.dataset['plane'] = plane;
+                details.addEventListener('defaultCrosshairsSet', () => {
+                    url.plane = plane;
+                })
                 // details.dataset['data'] = data;
                 switch (dataType) {
                     case 'IMAGE':
@@ -295,6 +302,9 @@ function listTargets(url, ul) {
     function createItem(ul, o) {
         const li = ul.appendChild(document.createElement('li'));
         const details = li.appendChild(document.createElement('details'));
+        details.addEventListener('defaultCrosshairsSet', event => {
+            url.fnameTemplate = o.fnameTemplate;
+        })
         const summary = details.appendChild(document.createElement('summary'));
         const a = summary.appendChild(document.createElement('a'));
         a.innerText = o.path;
@@ -419,15 +429,16 @@ function setDefaultCrosshairs(event, permitReset = true) {
     let wasHandled = false;
 
     if (url.x != x || url.y != y) {
-        try {
-            url.step = event.target.parentElement.parentElement.dataset['step'];
-            url.section = event.target.parentElement.parentElement.dataset['section'];
-            url.plane = event.target.parentElement.dataset['plane'];
-        } catch (e) {
-            console.warn(e);
+        const crosshairsChangedEvent = new Event('defaultCrosshairsSet', {
+            bubbles: true,
+            cancelable: true,
+            composed: false,
+        });
+        event.target.dispatchEvent(crosshairsChangedEvent);
+        if (!crosshairsChangedEvent.defaultPrevented) {
+            url.x = x;
+            url.y = y;
         }
-        url.x = x;
-        url.y = y;
         wasHandled = true;
     } else if (permitReset) {
         url.plane = undefined;
