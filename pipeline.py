@@ -83,14 +83,30 @@ class RingDetector(Pipeline):
             return labels, distances
 
         @self.add_step
+        @Step.of(['GFP'])
+        def threshold(GFP):
+            from skimage.morphology import disk
+            from skimage.util import img_as_float, img_as_ubyte
+            from skimage.filters.rank import mean, percentile
+            from skimage.filters import threshold_local
+            import numpy as np
+
+            selem = disk(8)
+            # GFP = img_as_ubyte(GFP)
+            # th = mean(GFP, selem)
+            # mean_mask = th < percentile(GFP, selem, p0=0.75)
+            # th[mean_mask] = ((percentile(GFP, selem, p0=0.75) + th) / 2)[mean_mask]
+            th = threshold_local(GFP, 15, offset=-0.01)
+            # th = img_as_float(th)
+            # GFP = img_as_float(GFP)
+            return GFP - th,
+
+        @self.add_step
         @Step.of(['good_coordinates', 'bad_coordinates', 'DsRed', 'GFP'])
         def extract_coordinates(all_coordinates, DsRed, GFP):
             from skimage.morphology import disk, dilation, erosion, skeletonize, thin
-            from skimage.util import img_as_float, img_as_ubyte
-            from skimage.filters.rank import percentile
             import numpy as np
 
-            th = img_as_float(percentile(img_as_ubyte(GFP), disk(8), p0=0.75))
             good_coordinates = []
             bad_coordinates = []
             bad_floods = np.zeros_like(DsRed)
