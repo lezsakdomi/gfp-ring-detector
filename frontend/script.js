@@ -413,6 +413,33 @@ function createImg(details, src) {
     img.addEventListener('mouseleave', () => {
         dragStarted = undefined;
     });
+    img.addEventListener('load', () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = realImageW / defaultZoom;
+        canvas.height = realImageH / defaultZoom;
+        const context = canvas.getContext('2d');
+        context.drawImage(img, 0, 0);
+        const div = img.parentElement.insertBefore(document.createElement('div'), img.nextSibling);
+        img.addEventListener('mousemove', event => {
+            if (!dragStarted) {
+                const x = Math.round(event.offsetX / imageZoom - imageX);
+                const y = Math.round(event.offsetY / imageZoom - imageY);
+                if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) {
+                    div.innerText = 'Out of range';
+                } else {
+                    const {data: [r, g, b, a]} = context.getImageData(x, y, 1, 1, {colorSpace: 'srgb'});
+                    div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+
+                    function ps(i, n) {
+                        return i.toString().padStart(n, ' ');
+                    }
+                }
+            }
+        });
+        img.addEventListener('mouseleave', event => {
+            div.innerText = '';
+        })
+    })
 
     details.appendChild(img);
 

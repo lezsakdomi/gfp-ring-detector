@@ -59,6 +59,13 @@ details[data-type="IMAGE"] > img, details[data-type="target"] > img:hover {
     border-color: blue;
 }
 
+details > img + div {
+    position: absolute;
+    margin-top: calc(-1.5em - 5px);
+    margin-left: 10px;
+    z-index: 1;
+}
+
 details[data-type="target"] > summary {
     padding: 5px;
 }
