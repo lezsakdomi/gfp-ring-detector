@@ -54,7 +54,7 @@ details[data-type="IMAGE"] > img, details[data-type="target"] > img {
     border: 20px solid black;
 }
 
-details[data-type="IMAGE"] > img, details[data-type="target"] > img:hover {
+details[data-type="IMAGE"] > img:hover, details[data-type="target"] > img:hover {
     cursor: none;
     border-color: blue;
 }

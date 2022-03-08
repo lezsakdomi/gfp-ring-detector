@@ -431,7 +431,7 @@ function createImg(details, src) {
                     div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
 
                     function ps(i, n) {
-                        return i.toString().padStart(n, ' ');
+                        return i.toString().padStart(n, ' ');
                     }
                 }
             }

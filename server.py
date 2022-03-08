@@ -40,6 +40,8 @@ async def handle_connection(ws: WebSocketServerProtocol):
             import imageio
 
             def to_data_url(image, fmt='png'):
+                from skimage.util import img_as_ubyte
+                image = img_as_ubyte(image)
                 buf = BytesIO()
                 imageio.imwrite(buf, image, format=fmt)
                 buf.seek(0)
