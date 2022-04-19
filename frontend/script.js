@@ -151,6 +151,7 @@ function handleUrl(url) {
             break;
 
         case null:
+        case '':
             listTargets(url, document.getElementById('ul'));
             break;
 
