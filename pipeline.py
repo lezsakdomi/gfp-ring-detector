@@ -305,8 +305,7 @@ def run_application(fname_template, folder=None, interactive=False):
     import sys
 
     pipeline = RingDetector(fname_template, interactive=interactive)
-    stat_text, good_coordinates, bad_coordinates, all_coordinates = pipeline.run(
-        ['stat_text', 'good_coordinates', 'bad_coordinates', 'all_coordinates'])
+    stat_text, = pipeline.run(['stat_text'])
 
     if interactive:
         print()
@@ -321,12 +320,6 @@ def run_application(fname_template, folder=None, interactive=False):
 
         # In non-interactive mode saving all output to the folder given by CLI argument
         open(folder + '/stats.txt', 'w').writelines(stat_text)
-        open(folder + '/granules-with-rings.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
-        open(folder + '/granules-without-rings.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in bad_coordinates])
-        open(folder + '/granules.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in all_coordinates])
 
 def main(argv, stderr):
     fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
