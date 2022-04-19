@@ -1,5 +1,6 @@
 from pipeline_lib import Step, Pipeline
 import numpy as np
+from copy import deepcopy
 
 
 # helper function for reading a specified channel as numpy array (image)
@@ -7,8 +8,11 @@ def chreader(fname_template: str):
     def chread(chnum):
         from skimage.io import imread
         fname = fname_template.format(chnum)
-        img = imread(fname)
-        return img
+        try:
+            img = imread(fname)
+            return img
+        except FileNotFoundError:
+            return None
 
     return chread
 
