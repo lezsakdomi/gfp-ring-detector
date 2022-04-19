@@ -7,18 +7,18 @@ import types
 
 class Step:
     @staticmethod
-    def with_name(name):
-        return functools.partial(Step, name=name)
+    def with_name(name, *args, **kwargs):
+        return functools.partial(Step, *args, name=name, **kwargs)
 
     @staticmethod
-    def of(outputs):
-        return functools.partial(Step, of=outputs)
+    def of(outputs, *args, **kwargs):
+        return functools.partial(Step, *args, of=outputs, **kwargs)
 
     @staticmethod
-    def on(inputs):
-        return functools.partial(Step, on=inputs)
+    def on(inputs, *args, **kwargs):
+        return functools.partial(Step, *args, on=inputs, **kwargs)
 
-    def __init__(self, func, of, on=None, name=None, details=None):
+    def __init__(self, func, of, on=None, name=None, description=None):
         self._func = func
         self._name = name or func.__name__
         self._inputs = on or tuple(inspect.signature(func).parameters.keys())
@@ -36,7 +36,7 @@ class Step:
         self._finished = Event()
         self._completed = Event()
         self._errored = Event()
-        self.details = details
+        self.details = description
 
     def clone(self):
         return Step(self._func, self._name, self._inputs, self._outputs)
