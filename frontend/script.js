@@ -317,11 +317,11 @@ function listTargets(url, ul) {
     const span = ul.parentElement.insertBefore(document.createElement('span'), ul);
 
     function runSearch() {
+        const query = input.value;
+        const items = query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs;
         for (const {li} of fuse.getIndex().docs) {
             li.style.display = 'none';
         }
-        const query = input.value;
-        const items = query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs;
         for (const {li} of items) {
             li.style.display = 'inherit';
         }
@@ -451,6 +451,7 @@ function createImg(details, src) {
             div.innerText = '';
         })
     })
+    img.loading='lazy';
 
     details.appendChild(img);
 
