@@ -21,14 +21,14 @@ class RingDetector(Pipeline):
     def _add_to_img5(self, step, pipeline, state, completed=False, step_index=0, *args, **kwargs):
         import numpy as np
 
-        outputs = ['DsRed', 'GFP', 'DAPI']
+        outputs = ['DsRed', 'GFP', 'd', 'dd']
         shape = (1040, 1388)
 
         if completed:
             images5 = []
             for c, out in enumerate(outputs):
                 if out in state:
-                    img = state[out].copy()
+                    img = deepcopy(state[out])
                 else:
                     img = np.zeros(shape)
                 images5.append([img])
@@ -64,12 +64,32 @@ class RingDetector(Pipeline):
             from skimage.filters.rank import minimum
             from skimage.morphology import disk
             from skimage.util import img_as_ubyte
+            from skimage.exposure import adjust_gamma
 
             DsRed = gaussian(DsRed, 1)
             GFP = gaussian(GFP, 1)
             DsRed[minimum(img_as_ubyte(DsRed), disk(30)) > 80] = 0
 
+            # DsRed = adjust_gamma(DsRed, 5)
+
             return DsRed, GFP
+
+        for i in range(30, 31):
+            low_sigma = i / 15 * 4
+            high_sigma = (i + 1) / 15 * 4
+
+            def dog_func(i, low_sigma, high_sigma, DsRed):
+                from skimage.filters import difference_of_gaussians
+                return [difference_of_gaussians(DsRed, low_sigma),
+                        difference_of_gaussians(DsRed, high_sigma) - difference_of_gaussians(DsRed, low_sigma),
+                        difference_of_gaussians(DsRed, low_sigma, high_sigma)]
+
+            from functools import partial
+            dog_func_partial = partial(dog_func, i, low_sigma, high_sigma)
+
+            self.add_step(dog_func_partial, name=f'dog_{i}', on=['DsRed'], of=['d', 'dd', 'd2'])
+
+        # return
 
         @self.add_step
         @Step.of('all_coordinates')
@@ -81,14 +101,18 @@ class RingDetector(Pipeline):
             return list(coordinates)
 
         @self.add_step
-        @Step.of(['DsRed', 'distances'])
-        def flood_granule_areas(DsRed, all_coordinates):
-            from custom_algo import multi_flood
+        @Step.of(['DsRed'])
+        def flood_granule_areas(dd, all_coordinates):
+            # flood until dd > 0
             import numpy as np
-            labels, distances, counts = multi_flood(DsRed, np.array(all_coordinates), mask=DsRed > 0.5)
-            distances = distances - 1
-            labels[distances == -1] = -1
-            return labels, distances
+            from skimage.segmentation import flood_fill
+            labels = np.zeros(dd.shape, 'int')
+            for i, coord in all_coordinates:
+                flood(labels, coord, i + 1)
+                # TODO set returned mask to i+1
+                # everything else should be fine
+            labels = labels - 1
+            return labels,
 
         @self.add_step
         @Step.of(['GFP'])
