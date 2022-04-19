@@ -196,12 +196,23 @@ function analyze(url, ul) {
                 details.innerHTML = `<summary>
                     ${ev_ !== '>' ? ev_ : ""}
                     <b>${step}</b>${det ? ", " + det : ""}
-                    <button class="open-in-editor">Open in editor</button>
                 </summary>`;
-                details.querySelector('summary > .open-in-editor').addEventListener('click', (event) => {
-                    ws.send(`Open in editor #${no}`);
-                    event.preventDefault();
-                });
+                const summary = details.querySelector('summary');
+                if (section == 'inputs') {
+                    const editorButton = summary.appendChild(document.createElement('button'));
+                    editorButton.innerText = "Open in editor";
+                    editorButton.addEventListener('click', (event) => {
+                        ws.send(`Open in editor #${no}`);
+                        event.preventDefault();
+                    });
+
+                    const viewerButton = summary.appendChild(document.createElement('button'));
+                    viewerButton.innerText = "Open viewer";
+                    viewerButton.addEventListener('click', (event) => {
+                        ws.send(`View in 5D ${step}`);
+                        event.preventDefault();
+                    });
+                }
                 if ((det && det.match('debug')) || (url.step === step && url.section === section)) details.open = true;
                 details.addEventListener('toggle', event => {
                     if (details.open) {

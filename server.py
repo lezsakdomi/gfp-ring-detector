@@ -84,8 +84,11 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 code, line = inspect.getsourcelines(ring_detector.steps[n]._func)
                 os.system(f"pycharm --line {line} {file}")
 
-            elif msg == 'View in 5D':
-                ring_detector.view_in_5d()
+            elif msg.startswith('View in 5D'):
+                try:
+                    ring_detector.view_in_5d(msg[len('View in 5D '):])
+                except:
+                    traceback.print_exc()
 
             else:
                 print(msg)
