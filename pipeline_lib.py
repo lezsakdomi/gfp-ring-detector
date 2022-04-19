@@ -142,7 +142,7 @@ class Pipeline:
         if isinstance(step, Step):
             self.steps.append(step)
             return step
-        if isinstance(step, types.FunctionType):
+        if isinstance(step, types.FunctionType) or isinstance(step, functools.partial):
             return self.add_step(Step(step, *args, **kwargs))
         else:
             raise RuntimeError(f"Invalid step type: {type(step)}")

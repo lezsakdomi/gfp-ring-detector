@@ -8,9 +8,11 @@ from skimage import io
 
 if len(sys.argv) != 2:
     print(f"Usage: {sys.argv[0]} mCD8-GFP_GlueRed_-6h-0023.zvi")
-    sys.exit(1)
 
-reader = bioformats.get_image_reader(42, path=sys.argv[1])
+    reader = bioformats.get_image_reader(42, path="mCD8-GFP_GlueRed_-6h-0023.zvi")
+else:
+    reader = bioformats.get_image_reader(42, path=sys.argv[1])
+
 img = reader.read(z=3)
 gfp = img[:, :, 1]
 kernels = []

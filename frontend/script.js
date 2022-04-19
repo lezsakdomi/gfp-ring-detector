@@ -42,6 +42,8 @@ function setUrl({page, fnameTemplate, step, section, plane, x, y, zoom}) {
                 if (plane) add(plane); else break;
                 break;
         }
+    } else {
+        add('', {x, y, zoom});
     }
 
     hash = hash || '#';
@@ -148,7 +150,13 @@ function handleUrl(url) {
             analyze(url, document.getElementById('ul'));
             break;
 
+        case null:
+        case '':
+            listTargets(url, document.getElementById('ul'));
+            break;
+
         default:
+            console.log(url.page);
             url.page = 'analyze';
             handleUrl(url);
     }
@@ -180,17 +188,32 @@ function analyze(url, ul) {
                 details.dataset['event'] = ev_;
                 details.dataset['step'] = step;
                 details.dataset['section'] = section;
+                details.addEventListener('defaultCrosshairsSet', event => {
+                    url.step = step;
+                    url.section = section;
+                })
                 li.dataset['step'] = step;
 
                 details.innerHTML = `<summary>
                     ${ev_ !== '>' ? ev_ : ""}
                     <b>${step}</b>${det ? ", " + det : ""}
-                    <button class="open-in-editor">Open in editor</button>
                 </summary>`;
-                details.querySelector('summary > .open-in-editor').addEventListener('click', (event) => {
-                    ws.send(`Open in editor #${no}`);
-                    event.preventDefault();
-                });
+                const summary = details.querySelector('summary');
+                if (section == 'inputs') {
+                    const editorButton = summary.appendChild(document.createElement('button'));
+                    editorButton.innerText = "Open in editor";
+                    editorButton.addEventListener('click', (event) => {
+                        ws.send(`Open in editor #${no}`);
+                        event.preventDefault();
+                    });
+
+                    const viewerButton = summary.appendChild(document.createElement('button'));
+                    viewerButton.innerText = "Open viewer";
+                    viewerButton.addEventListener('click', (event) => {
+                        ws.send(`View in 5D ${step}`);
+                        event.preventDefault();
+                    });
+                }
                 if ((det && det.match('debug')) || (url.step === step && url.section === section)) details.open = true;
                 details.addEventListener('toggle', event => {
                     if (details.open) {
@@ -212,43 +235,13 @@ function analyze(url, ul) {
                 details.dataset['event'] = ev;
                 details.dataset['type'] = dataType;
                 details.dataset['plane'] = plane;
+                details.addEventListener('defaultCrosshairsSet', () => {
+                    url.plane = plane;
+                })
                 // details.dataset['data'] = data;
                 switch (dataType) {
                     case 'IMAGE':
-                        const img = document.createElement('img');
-                        let dragStarted;
-                        let dragHandled;
-                        img.src = data;
-                        img.addEventListener('mousemove', updateCrosshairs);
-                        img.addEventListener('mouseenter', showCrosshairs);
-                        img.addEventListener('mouseleave', hideCrosshairs);
-                        img.addEventListener('mousewheel', zoomImages);
-                        img.addEventListener('dragstart', event => event.preventDefault());
-                        img.addEventListener('mousedown', (event) => {
-                            dragStarted = event;
-                            // dragHandled = setDefaultCrosshairs(event, false);
-                            dragHandled = false;
-                        });
-                        img.addEventListener('mousemove', (event) => {
-                            if (dragStarted) {
-                                moveImages(dragStarted, event);
-                                dragStarted = event;
-                                dragHandled = true;
-                            }
-                        });
-                        img.addEventListener('mouseup', (event) => {
-                            if (dragStarted) {
-                                moveImages(dragStarted, event);
-                                if (!dragHandled) {
-                                    setDefaultCrosshairs(event, true);
-                                }
-                                dragStarted = undefined;
-                            }
-                        });
-                        img.addEventListener('mouseleave', () => {
-                            dragStarted = undefined;
-                        });
-                        details.appendChild(img);
+                        createImg(details, data);
                         break;
 
                     case 'UNKNOWN':
@@ -303,6 +296,167 @@ function analyze(url, ul) {
         event.preventDefault();
     });
     ul.parentElement.insertBefore(viewButton, ul.nextSibling);
+}
+
+function listTargets(url, ul) {
+    const wsUrl = new URL('list', location.href);
+    wsUrl.protocol = 'ws';
+    const ws = new WebSocket(wsUrl.toString());
+    ws.addEventListener('error', e => console.error(e));
+    // ws.addEventListener('message', msg => console.log(msg));
+    ws.addEventListener('close', reason => console.warn(reason));
+    
+    const fuse = new Fuse([], {
+        useExtendedSearch: true,
+        keys: ['path'],
+    });
+
+    const input = ul.parentElement.insertBefore(document.createElement('input'), ul);
+    input.placeholder = 'Search';
+    input.addEventListener('input', runSearch);
+
+    const span = ul.parentElement.insertBefore(document.createElement('span'), ul);
+
+    function runSearch() {
+        const query = input.value;
+        const items = query ? fuse.search(query).map(o => o.item) : fuse.getIndex().docs;
+        for (const {li} of fuse.getIndex().docs) {
+            li.style.display = 'none';
+        }
+        for (const {li} of items) {
+            li.style.display = 'inherit';
+        }
+
+        span.innerText = `${items.length} results`;
+
+        if (items.length) {
+            const sorted = [...items]
+                .filter(item => item.stats)
+                .sort((a, b) => {
+                    return parseFloat(a.stats.ratio) - parseFloat(b.stats.ratio);
+                })
+                .map(o => {
+                    return parseFloat(o.stats.ratio);
+                });
+
+            p0 = Math.round(sorted[0] * 100) + '%';
+            p25 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.25)] * 100) + '%';
+            p50 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.5)] * 100) + '%';
+            p75 = Math.round(sorted[Math.floor((sorted.length - 1) * 0.75)] * 100) + '%';
+            p100 = Math.round(sorted[sorted.length - 1] * 100) + '%';
+
+            span.innerText += `, ${p0}--[${p25} |${p50}| ${p75}]--${p100}`;
+        }
+    }
+
+    function createItem(ul, o) {
+        const li = ul.appendChild(document.createElement('li'));
+        o.li = li;
+        const details = li.appendChild(document.createElement('details'));
+        details.addEventListener('defaultCrosshairsSet', event => {
+            url.fnameTemplate = o.fnameTemplate;
+        })
+        const summary = details.appendChild(document.createElement('summary'));
+        const a = summary.appendChild(document.createElement('a'));
+        a.innerText = o.path;
+        a.href = `#analyze#${encodeURIComponent(o.fnameTemplate)}`;
+        a.addEventListener('click', event => {
+            event.preventDefault();
+            url.page = 'analyze';
+            url.fnameTemplate = o.fnameTemplate;
+            location.reload();
+        })
+        if (o.stats) {
+            const progress = summary.appendChild(document.createElement('progress'));
+            progress.value = o.stats.ratio;
+            progress.style.marginLeft = '1em';
+            const span = summary.appendChild(document.createElement('span'));
+            span.innerText = `${Math.round(parseFloat(o.stats.ratio) * 100)}% (${o.stats['hit count']} + ${o.stats['miss count']} = ${o.stats['count']})`;
+            span.style.marginLeft = '1em';
+        }
+        details.dataset['type'] = 'target';
+        createImg(details, `${o.path}/composite.jpg`);
+        return li;
+    }
+
+    ws.addEventListener('message', ({data: msg}) => {
+        const o = JSON.parse(msg)
+        console.log(o);
+        fuse.add(o);
+        createItem(ul, o);
+    });
+}
+
+function createImg(details, src) {
+    if (details.dataset['type'] !== 'IMAGE') {
+        console.warn('Tried to create an image on a non-image details:', details, src);
+    }
+
+    const img = document.createElement('img');
+    let dragStarted;
+    let dragHandled;
+    img.src = src;
+    img.addEventListener('mousemove', updateCrosshairs);
+    img.addEventListener('mouseenter', showCrosshairs);
+    img.addEventListener('mouseleave', hideCrosshairs);
+    img.addEventListener('mousewheel', zoomImages);
+    img.addEventListener('dragstart', event => event.preventDefault());
+    img.addEventListener('mousedown', (event) => {
+        dragStarted = event;
+        // dragHandled = setDefaultCrosshairs(event, false);
+        dragHandled = false;
+    });
+    img.addEventListener('mousemove', (event) => {
+        if (dragStarted) {
+            moveImages(dragStarted, event);
+            dragStarted = event;
+            dragHandled = true;
+        }
+    });
+    img.addEventListener('mouseup', (event) => {
+        if (dragStarted) {
+            moveImages(dragStarted, event);
+            if (!dragHandled) {
+                setDefaultCrosshairs(event, true);
+            }
+            dragStarted = undefined;
+        }
+    });
+    img.addEventListener('mouseleave', () => {
+        dragStarted = undefined;
+    });
+    img.addEventListener('load', () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = realImageW / defaultZoom;
+        canvas.height = realImageH / defaultZoom;
+        const context = canvas.getContext('2d');
+        context.drawImage(img, 0, 0);
+        const div = img.parentElement.insertBefore(document.createElement('div'), img.nextSibling);
+        img.addEventListener('mousemove', event => {
+            if (!dragStarted) {
+                const x = Math.round(event.offsetX / imageZoom - imageX);
+                const y = Math.round(event.offsetY / imageZoom - imageY);
+                if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) {
+                    div.innerText = 'Out of range';
+                } else {
+                    const {data: [r, g, b, a]} = context.getImageData(x, y, 1, 1, {colorSpace: 'srgb'});
+                    div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+
+                    function ps(i, n) {
+                        return i.toString().padStart(n, ' ');
+                    }
+                }
+            }
+        });
+        img.addEventListener('mouseleave', event => {
+            div.innerText = '';
+        })
+    })
+    img.loading='lazy';
+
+    details.appendChild(img);
+
+    return img;
 }
 
 const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];
@@ -362,11 +516,16 @@ function setDefaultCrosshairs(event, permitReset = true) {
     let wasHandled = false;
 
     if (url.x != x || url.y != y) {
-        url.step = event.target.parentElement.parentElement.dataset['step'];
-        url.section = event.target.parentElement.parentElement.dataset['section'];
-        url.plane = event.target.parentElement.dataset['plane'];
-        url.x = x;
-        url.y = y;
+        const crosshairsChangedEvent = new Event('defaultCrosshairsSet', {
+            bubbles: true,
+            cancelable: true,
+            composed: false,
+        });
+        event.target.dispatchEvent(crosshairsChangedEvent);
+        if (!crosshairsChangedEvent.defaultPrevented) {
+            url.x = x;
+            url.y = y;
+        }
         wasHandled = true;
     } else if (permitReset) {
         url.plane = undefined;

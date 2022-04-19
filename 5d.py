@@ -5,9 +5,11 @@ import NanoImagingPack as nip, bioformats
 
 if len(sys.argv) != 2:
     print(f"Usage: {sys.argv[0]} zvi_file")
-    sys.exit(1)
+    path = "mCD8-GFP_GlueRed_-6h-0023.zvi"
+else:
+    path = sys.argv[1]
 
-reader = bioformats.get_image_reader(42, path=sys.argv[1])
+reader = bioformats.get_image_reader(42, path=path)
 planes = [[] for c in range(reader.rdr.getSizeC())]
 for z in range(reader.rdr.getSizeZ()):
     img = reader.read(z=z)

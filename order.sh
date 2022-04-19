@@ -6,7 +6,8 @@ if [ -z "$NO_RM" ]; then
 fi
 
 if [ -z "$STREAM" ]; then
-  files="$(find "képek/" -name "stats.txt" -newer "képek/2021-07-15_GlueRab7_ctrl_-2h/GlueRab7_ctrl_-2h-0018.tif_Files/stats.txt")"
+  first_file="$(find 'képek/' -name '*_Files' -type d | head -n1)/stats.txt"
+  files="$(find "képek/" -name "stats.txt" -newer "$first_file")"
   count="$(echo "$files" | wc -l)"
 else
   count="?"
@@ -39,7 +40,7 @@ fi | while IFS= read file; do
     echo "Warning: $file is invalid - skipping"
     continue
   fi
-  linkname="ordered/$(cat "$file" | grep -oP 'Scalar positives: \K.*')-$(basename "$folder")"
+  linkname="ordered/$(cat "$file" | grep -oP 'Ratio: \K.*')-$(basename "$folder")"
    ln -s "$folder/composite.tif" "$linkname.tif"
    ln -s "$folder" "$linkname"
   # convert "$folder"/*_c?.tif -combine "$linkname"

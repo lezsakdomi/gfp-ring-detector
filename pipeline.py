@@ -1,5 +1,6 @@
 from pipeline_lib import Step, Pipeline
 import numpy as np
+from copy import deepcopy
 
 
 # helper function for reading a specified channel as numpy array (image)
@@ -7,8 +8,11 @@ def chreader(fname_template: str):
     def chread(chnum):
         from skimage.io import imread
         fname = fname_template.format(chnum)
-        img = imread(fname)
-        return img
+        try:
+            img = imread(fname)
+            return img
+        except FileNotFoundError:
+            return None
 
     return chread
 
@@ -17,7 +21,7 @@ class RingDetector(Pipeline):
     def _add_to_img5(self, step, pipeline, state, completed=False, step_index=0, *args, **kwargs):
         import numpy as np
 
-        outputs = ['GFP', 'DsRed', 'DAPI']
+        outputs = ['DsRed', 'GFP', 'DAPI']
         shape = (1040, 1388)
 
         if completed:
@@ -45,9 +49,11 @@ class RingDetector(Pipeline):
         @self.add_step
         @Step.of(['DsRed', 'GFP', 'DAPI'])
         def load():
-            DsRed = chread(0)
-            GFP = chread(1)
-            DAPI = chread(2)
+            from toml import load
+            dataset_options = load('képek/dataset.toml')
+            DsRed = chread(dataset_options['channels']['DsRed'])
+            GFP = chread(dataset_options['channels']['GFP'])
+            DAPI = chread(dataset_options['channels']['DAPI'])
 
             return DsRed, GFP, DAPI
 
@@ -200,25 +206,57 @@ class RingDetector(Pipeline):
 
         super(RingDetector, self)._hook(hook, *args, **kwargs)
 
-    def view_in_5d(self):
-        if not self._interactive:
-            raise RuntimeError("Not started interactively")
+    def view_in_5d(self, step=None, step_index=0):
+        if not step:
+            step = None
+
+        img5 = []
+        markers = []
+        commands = ''
+
+        if step is None:
+            if self._interactive:
+                img5 = self._img5
+                commands = ',T'
+                # commands = ',,,,,vET'
+                #
+                if self.find_step('extract_coordinates')._completed.is_set():
+                    markers = [
+                        (self.state['good_coordinates'], 0x00FF00),
+                        (self.state['bad_coordinates'], 0x0000FF),
+                    ]
+            else:
+                raise RuntimeError("Not started interactively")
+        else:
+            shape = (1040, 1388)
+            marker_size = 15
+            step = self.find_step(step, step_index)
+
+            def transform_data(data):
+                img = np.zeros(shape)
+                if isinstance(data, np.ndarray):
+                    img = data
+                if isinstance(data, list):
+                    for (x, y) in data:
+                        img[x-marker_size:x+marker_size, y-marker_size:y+marker_size] = 1
+                    markers.append((data, None))
+                return [img]
+
+            if step._completed.is_set():
+                img5 = list(map(transform_data, step.last_output.values()))
+            elif step._started.is_set():
+                img5 = list(map(transform_data, step.last_input.values()))
 
         import NanoImagingPack
 
-        # Show captured step-intermediate images using View 5D
-        viewer = NanoImagingPack.v5(np.array(self._img5), multicol=True)
-        # note: using img4 instead of img5 is a good idea
-
-        # Navigate to the output of step 1 and initialize exposure
-        viewer.ProcessKeys(',,,T')
-
-        # Displaying the coordinates
+        viewer = NanoImagingPack.v5(np.array(img5), multicol=True if step is None else None)
+        viewer.ProcessKeys(commands)
 
         import javabridge as jb
 
-        # Disable useless lines connection the markers
         my3DData = jb.get_field(viewer.o, 'data3d', 'Lview5d/My3DData;')
+        myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
+
         jb.set_field(my3DData, 'ConnectionShown', 'Z', False)
 
         # Helper function: Converts 2D coordinates to 5D, spanning all steps
@@ -229,15 +267,10 @@ class RingDetector(Pipeline):
                     result.append(np.array([t, 0, 0, coord[0], coord[1]]))
             return result
 
-        if self.find_step('extract_coordinates')._completed.is_set():
-            # Pushing the coordinates to the user interface (good -> List1, bad -> List2)
-            viewer.setMarkers(f(self.state['good_coordinates']), 1)
-            viewer.setMarkers(f(self.state['bad_coordinates']), 2)
-
-            # Set marker colors (List1 -> green, List2 -> blue)
-            myMarkerLists = jb.get_field(my3DData, 'MyMarkers', 'Lview5d/MarkerLists;')
-            jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 1), 'SetColor', '(I)V', 0x00FF00)
-            jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', 2), 'SetColor', '(I)V', 0x0000FF)
+        for i, (l, c) in enumerate(markers):
+            viewer.setMarkers(f(l), i + 1)
+            if c is not None:
+                jb.call(jb.call(myMarkerLists, 'GetMarkerList', '(I)Lview5d/MarkerList;', i + 1), 'SetColor', '(I)V', c)
 
         # Refresh UI by initializing viewport
         viewer.ProcessKeys('i')

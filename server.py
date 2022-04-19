@@ -40,6 +40,8 @@ async def handle_connection(ws: WebSocketServerProtocol):
             import imageio
 
             def to_data_url(image, fmt='png'):
+                from skimage.util import img_as_ubyte
+                image = img_as_ubyte(image)
                 buf = BytesIO()
                 imageio.imwrite(buf, image, format=fmt)
                 buf.seek(0)
@@ -82,11 +84,27 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 code, line = inspect.getsourcelines(ring_detector.steps[n]._func)
                 os.system(f"pycharm --line {line} {file}")
 
-            elif msg == 'View in 5D':
-                ring_detector.view_in_5d()
+            elif msg.startswith('View in 5D'):
+                try:
+                    ring_detector.view_in_5d(msg[len('View in 5D '):])
+                except:
+                    traceback.print_exc()
 
             else:
                 print(msg)
+
+    if path == '/list':
+        from list_targets import walk
+        from json import dumps
+
+        for image in walk():
+            json = dumps({
+                'fnameTemplate': image.fname_template,
+                'name': image.name,
+                'path': image.path,
+                'stats': image.stats
+            })
+            await ws.send(json)
 
     else:
         await ws.close(4001)
@@ -96,6 +114,8 @@ async def serve(host="0.0.0.0", port=8080):
     async def process_request(path, request_headers):
         if 'Upgrade' in request_headers and request_headers['Upgrade'] == 'websocket':
             return None
+
+        path = unquote(path)
 
         frontend_dir = os.path.dirname(__file__) + '/frontend'
         frontend_path = frontend_dir + path
@@ -111,7 +131,7 @@ async def serve(host="0.0.0.0", port=8080):
                     result = "<ul>\n"
                     for entry in os.scandir(path):
                         result += f'<li><a href="{html.escape(entry.name)}">'
-                        if entry.is_link():
+                        if entry.is_symlink():
                             result += html.escape(entry.name) + '@'
                         elif entry.is_file():
                             result += html.escape(entry.name)
@@ -153,6 +173,30 @@ async def serve(host="0.0.0.0", port=8080):
             traceback.print_exc()
             return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
                b'Server error'
+
+        if path.startswith('/képek/') and '..' not in path:
+            try:
+                with open('./' + path, 'rb') as f:
+                    data = f.read()
+                response_headers = []
+                mime, encoding = mimetypes.guess_type(frontend_path)
+
+                if mime is not None:
+                    response_headers.append(('Content-Type', mime))
+                if encoding is not None:
+                    response_headers.append(('Content-Encoding', encoding))
+
+                return HTTPStatus.OK, response_headers, data
+            except FileNotFoundError:
+                return HTTPStatus.NOT_FOUND, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'The requested data file was not found on the server'
+            except PermissionError:
+                return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'Not permitted to open this location'
+            except Exception:
+                traceback.print_exc()
+                return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
+                       b'Server error'
 
         return HTTPStatus.NOT_FOUND, [('Content-Type', "text/plain, charset=UTF-8")], \
            b'The requested resource was not found on the server'
