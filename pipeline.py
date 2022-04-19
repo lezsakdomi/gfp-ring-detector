@@ -69,8 +69,8 @@ class RingDetector(Pipeline):
             return DsRed, GFP
 
         @self.add_step
-        @Step.of(['DsRed', 'GFP'])
-        # Extracting circular features - converting disks to circles
+        @Step.of(['DsRed', 'GFP'],
+                 description="Extracting circular features - converting disks to circles")
         def circlize(DsRed, GFP):
             from skimage.morphology import erosion, dilation, disk
             from skimage.filters import threshold_local
@@ -86,8 +86,8 @@ class RingDetector(Pipeline):
         # TODO skip this step for more accuracy
         #      needs replacing hough_circle with custom algo
         @self.add_step
-        @Step.of(['DsRed', 'GFP'])
-        # Converting grayscale images to binary images, essentially thresholding
+        @Step.of(['DsRed', 'GFP'],
+                 description="Converting grayscale images to binary images, essentially thresholding")
         # Instead of returning True/False values, returns an image, where black means False and the original value means True
         def binarize(DsRed, GFP):
             from skimage.filters.rank import percentile
@@ -116,8 +116,8 @@ class RingDetector(Pipeline):
             return GFP
 
         @self.add_step(details="being debugged")
-        @Step.of(['DsRed', 'GFP'])
-        # Simple hough transformation
+        @Step.of(['DsRed', 'GFP'],
+                 description="Simple hough transformation")
         def hough(DsRed, GFP):
             from skimage.transform import hough_circle
 
