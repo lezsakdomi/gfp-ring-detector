@@ -396,6 +396,13 @@ function createImg(details, src) {
     let dragStarted;
     let dragHandled;
     img.src = src;
+    let match;
+    // noinspection JSAssignmentUsedAsCondition
+    if (match = src.match(/#(\d+(?:\.\d+)?)..(\d+(?:\.\d+)?)$/)) {
+        const [, min, max] = match;
+        img.dataset.minValue = min;
+        img.dataset.maxValue = max;
+    }
     img.addEventListener('mousemove', updateCrosshairs);
     img.addEventListener('mouseenter', showCrosshairs);
     img.addEventListener('mouseleave', hideCrosshairs);
@@ -440,7 +447,15 @@ function createImg(details, src) {
                     div.innerText = 'Out of range';
                 } else {
                     const {data: [r, g, b, a]} = context.getImageData(x, y, 1, 1, {colorSpace: 'srgb'});
-                    div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+                    if (img.dataset.hasOwnProperty('minValue') && img.dataset.hasOwnProperty('maxValue') &&
+                        (r === g) && (g === b) && (a === 255)) {
+                        const min = parseFloat(img.dataset.minValue);
+                        const max = parseFloat(img.dataset.maxValue);
+                        const base = (r + g + b) / 3 / 255;
+                        div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = ${ps(base * (max - min) + min, 3)}`;
+                    } else {
+                        div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+                    }
 
                     function ps(i, n) {
                         return i.toString().padStart(n, ' ');
