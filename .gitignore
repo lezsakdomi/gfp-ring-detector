@@ -7,3 +7,8 @@ screenshot*
 *_Files
 done.txt
 files.zip
+test-images/**/*
+test-images/**/stats.*
+test-images/**/*.txt
+dist
+build
