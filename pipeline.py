@@ -50,7 +50,9 @@ class RingDetector(Pipeline):
         @Step.of(['DsRed', 'GFP', 'DAPI'])
         def load():
             from toml import load
-            dataset_options = load('képek/dataset.toml')
+            from os import path
+            from list_targets import default_dataset
+            dataset_options = load(path.join(default_dataset, 'dataset.toml'))
             DsRed = chread(dataset_options['channels']['DsRed'])
             GFP = chread(dataset_options['channels']['GFP'])
             DAPI = chread(dataset_options['channels']['DAPI'])
