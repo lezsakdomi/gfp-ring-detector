@@ -1,0 +1,52 @@
+name: Build standalone executable
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        $CONDA/bin/conda env update --file conda-env.yml --name base
+    - name: Build application
+      run: |
+        $CONDA/bin/conda activate base
+        pyinstaller interactive-server.spec
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-linux
+        path: |
+          dist
+  
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.10
+    - name: Install dependencies
+      run: |
+        C:\Miniconda\condabin\conda.bat env update --file conda-env.yml --name base
+        C:\Miniconda\condabin\conda.bat init powershell
+    - name: Build application
+      run: |
+        # Activate the base environment
+        C:\Miniconda\condabin\conda.bat activate base
+        pyinstaller.exe .\interactive-server.spec
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-linux
+        path: |
+          dist
