@@ -120,7 +120,7 @@ class RingDetector(Pipeline):
                  description="flood until dd > 0")
         def flood_granule_areas(dd, all_coordinates):
             import numpy as np
-            from skimage.segmentation import flood_fill
+            from skimage.segmentation import flood
             labels = np.zeros(dd.shape, 'int')
             for i, coord in all_coordinates:
                 flood(labels, coord, i + 1)
