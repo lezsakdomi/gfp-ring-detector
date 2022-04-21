@@ -5,27 +5,27 @@ on:
     branches: [ master ]
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        $CONDA/bin/conda env update --file conda-env.yml --name base
-    - name: Build application
-      run: |
-        $CONDA/bin/conda activate base
-        pyinstaller interactive-server.spec
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: dist-linux
-        path: |
-          dist
+#  build-linux:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v3
+#    - name: Set up Python 3.10
+#      uses: actions/setup-python@v3
+#      with:
+#        python-version: "3.10"
+#    - name: Install dependencies
+#      run: |
+#        $CONDA/bin/conda env update --file conda-env.yml --name base
+#    - name: Build application
+#      run: |
+#        $CONDA/bin/conda activate base
+#        pyinstaller interactive-server.spec
+#    - name: Archive production artifacts
+#      uses: actions/upload-artifact@v3
+#      with:
+#        name: dist-linux
+#        path: |
+#          dist
   
   build-windows:
     runs-on: windows-latest
@@ -47,6 +47,6 @@ jobs:
     - name: Archive production artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: dist-linux
+        name: dist-windows
         path: |
           dist
