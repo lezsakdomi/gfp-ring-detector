@@ -68,9 +68,9 @@ jobs:
             //     .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
             // console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
             
-            const {data: artifacts} = await github.rest
+            const {data: {artifacts}} = await github.rest
                 .actions.listArtifactsForRepo({owner, repo});
-            console.log(`Found ${artifacts.length} artifacts total`);
+            console.log(`Found ${artifacts.length} artifacts total (${JSON.stringify(artifacts)})`);
             
             for (const artifact of artifacts) {
                 if (!artifact.name.match(/^dist-windows$/)) continue;
