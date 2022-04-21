@@ -14,8 +14,12 @@ svg {
 
 #compositePreview {
     position: fixed;
-    right: 0;
-    bottom: 0;
+    right: -1px;
+    bottom: -1px;
+    background: black;
+    border: 1px solid grey;
+    box-shadow: 1px 1px 3px 3px grey;
+    z-index: 10;
 }
 
 #compositePreview[open] {
@@ -65,7 +69,7 @@ details[data-type="IMAGE"] > img, details[data-type="target"] > img, #compositeP
     border: 20px solid black;
 }
 
-details[data-type="IMAGE"] > img:hover, details[data-type="target"] > img:hover, #compositePreview > div.compositeImage {
+details[data-type="IMAGE"] > img:hover, details[data-type="target"] > img:hover, #compositePreview {
     cursor: none;
     border-color: blue;
 }
