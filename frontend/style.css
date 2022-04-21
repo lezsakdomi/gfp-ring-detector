@@ -12,6 +12,17 @@ svg {
     margin-left: 0;
 }
 
+#compositePreview {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+}
+
+#compositePreview[open] {
+    width: 357px;
+    height: 292px;
+}
+
 li[data-source='ws-message']:not([data-event=">"]) {
     padding-left: 0.25em;
     margin-left: 0.25em;
@@ -47,16 +58,38 @@ details > details:not([open]) {
     margin-right: 4px;
 }
 
-details[data-type="IMAGE"] > img, details[data-type="target"] > img {
+details[data-type="IMAGE"] > img, details[data-type="target"] > img, #compositePreview img {
     filter: url(#imgFilter);
     object-fit: none;
     background: #222;
     border: 20px solid black;
 }
 
-details[data-type="IMAGE"] > img:hover, details[data-type="target"] > img:hover {
+details[data-type="IMAGE"] > img:hover, details[data-type="target"] > img:hover, #compositePreview > div.compositeImage {
     cursor: none;
     border-color: blue;
+}
+
+.compositeImage img {
+    mix-blend-mode: multiply;
+    background: black !important;
+}
+
+.compositeImage > div[data-channel] {
+    position: absolute;
+    mix-blend-mode: lighten;
+}
+
+.compositeImage div[data-channel="red"] {
+    background: red;
+}
+
+.compositeImage div[data-channel="green"] {
+    background: green;
+}
+
+.compositeImage div[data-channel="blue"] {
+    background: blue;
 }
 
 details > img + div {
