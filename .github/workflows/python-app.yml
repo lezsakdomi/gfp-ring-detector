@@ -50,3 +50,33 @@ jobs:
         name: dist-windows
         path: |
           dist
+
+  delete-old-artifacts:
+    needs: [ build-windows ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: List, filter and delete artifacts
+        uses: actions/github-script@v6
+        id: artifact
+        with:
+          script: |
+            const {owner, repo} = context.repo
+            const run_id = context.run_id
+            
+            const artifactIdsFromThisRun = await github.rest
+                .actions.listWorkflowRunArtifacts({owner, repo, run_id})
+                .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
+            console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
+            
+            const {data: artifacts} = await github.rest
+                .actions.listArtifactsForRepo({owner, repo});
+            console.log(`Found ${artifacts.length} artifacts total`);
+            
+            for (const artifact of artifacts) {
+                if (!artifact.name.match(/^dist-windows$/)) continue;
+                if (artifactIdsFromThisRun.contains(artifact.id)) continue;
+                
+                console.log(`Deleting artifact ${artifact.url}`);
+                const artifact_id = artifact.id;
+                await github.rest.actions.deleteArtifact({owner, repo, artifact_id});
+            }
