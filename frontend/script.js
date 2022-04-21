@@ -467,6 +467,7 @@ function createImg(details, src) {
             div.innerText = '';
         });
 
+        let lastMouseEvent;
         function keypressListener(event) {
             switch (event.key) {
                 case 'r':
@@ -486,14 +487,24 @@ function createImg(details, src) {
                     document.getElementById('compositePreview').open = true;
                     event.preventDefault();
                     break;
+
+                case ' ':
+                    setDefaultCrosshairs(lastMouseEvent);
+                    event.preventDefault();
+                    break;
             }
         }
         img.addEventListener('mouseenter', event => {
             window.addEventListener('keypress', keypressListener);
+            lastMouseEvent = event;
         });
         img.addEventListener('mouseleave', event => {
             window.removeEventListener('keypress', keypressListener);
+            lastMouseEvent = event;
         });
+        img.addEventListener('mousemove', event => {
+            lastMouseEvent = event;
+        })
     })
     img.loading='lazy';
 
