@@ -4,7 +4,7 @@
     <link rel="stylesheet" href="style.css"/>
 
     <style id="zoomCss">
-        details[data-type="IMAGE"] > img, details[data-type="target"] > img {
+        details[data-type="IMAGE"] > img, details[data-type="target"] > img, #compositePreview img {
             width: 1388px;
             height: 1040px;
             zoom: 0.25;
@@ -65,4 +65,12 @@
             </filter>
         </defs>
     </svg>
+    <details id="compositePreview" data-type="compositePreview">
+        <summary>Composite preview</summary>
+        <div class="compositeImage">
+            <div data-channel="red"><img></div>
+            <div data-channel="green"><img></div>
+            <div data-channel="blue"><img></div>
+        </div>
+    </details>
 </body>

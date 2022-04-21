@@ -50,7 +50,9 @@ async def handle_connection(ws: WebSocketServerProtocol):
 
             def to_info(name, data):
                 if isinstance(data, np.ndarray):
-                    return f"+ IMAGE {name} {to_data_url(data)}"
+                    min = np.min(data)
+                    max = np.max(data)
+                    return f"+ IMAGE {name} {to_data_url((data-min)/(max-min))}#{min}..{max}"
                 if isinstance(data, list):
                     joined = '\n'.join(map(lambda d: str(d).strip(), data))
                     return f"+ LIST {name} {joined}"
@@ -205,5 +207,4 @@ async def serve(host="0.0.0.0", port=8080):
         await asyncio.Future()
 
 if __name__ == "__main__":
-    webbrowser.open("http://localhost:8080/")
     asyncio.run(serve())

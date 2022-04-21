@@ -50,7 +50,15 @@ class RingDetector(Pipeline):
         @Step.of(['DsRed', 'GFP', 'DAPI'])
         def load():
             from toml import load
-            dataset_options = load('képek/dataset.toml')
+            from os import path
+            from list_targets import default_dataset
+            try:
+                dataset_options = load(path.join(default_dataset, 'dataset.toml'))
+            except FileNotFoundError:
+                dataset_options = {'channels': {'DsRed': 0, 'GFP': 1, 'DAPI': 2}}
+                with open(path.join(default_dataset, 'dataset.toml'), 'w') as f:
+                    from toml import dump
+                    dump(dataset_options, f)
             DsRed = chread(dataset_options['channels']['DsRed'])
             GFP = chread(dataset_options['channels']['GFP'])
             DAPI = chread(dataset_options['channels']['DAPI'])
@@ -100,10 +108,17 @@ class RingDetector(Pipeline):
                                          threshold_abs=0.6)
             return list(coordinates)
 
+            # Extracting the granule membranes
+            DsRed = dilation(DsRed, disk(3)) - erosion(DsRed, disk(1))
+
+            return DsRed, GFP
+
+        # TODO skip this step for more accuracy
+        #      needs replacing hough_circle with custom algo
         @self.add_step
-        @Step.of(['DsRed'])
+        @Step.of(['DsRed'],
+                 description="flood until dd > 0")
         def flood_granule_areas(dd, all_coordinates):
-            # flood until dd > 0
             import numpy as np
             from skimage.segmentation import flood_fill
             labels = np.zeros(dd.shape, 'int')

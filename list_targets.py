@@ -2,6 +2,9 @@ import os
 import re
 
 
+default_dataset = 'képek'
+
+
 folder_re = re.compile('^(?P<name>.*)\.tif_Files$')
 stat_line_re = re.compile('^(?P<feature>[^:]+): (?P<value>.*)\n?$')
 
@@ -45,7 +48,10 @@ class Target:
         return img
 
 
-def walk(dataset="képek"):
+def walk(dataset=None):
+    if dataset is None:
+        dataset = default_dataset
+
     for path, dirs, files in os.walk(dataset):
         try:
             yield Target(path, files)

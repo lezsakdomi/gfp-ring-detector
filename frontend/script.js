@@ -396,6 +396,13 @@ function createImg(details, src) {
     let dragStarted;
     let dragHandled;
     img.src = src;
+    let match;
+    // noinspection JSAssignmentUsedAsCondition
+    if (match = src.match(/#(\d+(?:\.\d+)?)..(\d+(?:\.\d+)?)$/)) {
+        const [, min, max] = match;
+        img.dataset.minValue = min;
+        img.dataset.maxValue = max;
+    }
     img.addEventListener('mousemove', updateCrosshairs);
     img.addEventListener('mouseenter', showCrosshairs);
     img.addEventListener('mouseleave', hideCrosshairs);
@@ -440,7 +447,15 @@ function createImg(details, src) {
                     div.innerText = 'Out of range';
                 } else {
                     const {data: [r, g, b, a]} = context.getImageData(x, y, 1, 1, {colorSpace: 'srgb'});
-                    div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+                    if (img.dataset.hasOwnProperty('minValue') && img.dataset.hasOwnProperty('maxValue') &&
+                        (r === g) && (g === b) && (a === 255)) {
+                        const min = parseFloat(img.dataset.minValue);
+                        const max = parseFloat(img.dataset.maxValue);
+                        const base = (r + g + b) / 3 / 255;
+                        div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = ${ps(base * (max - min) + min, 3)}`;
+                    } else {
+                        div.innerText = `(${ps(x, 4)}, ${ps(y, 4)}) = srgb(${ps(r, 3)}, ${ps(g, 3)}, ${ps(b, 3)}, ${ps(a, 3)})`;
+                    }
 
                     function ps(i, n) {
                         return i.toString().padStart(n, ' ');
@@ -450,6 +465,45 @@ function createImg(details, src) {
         });
         img.addEventListener('mouseleave', event => {
             div.innerText = '';
+        });
+
+        let lastMouseEvent;
+        function keypressListener(event) {
+            switch (event.key) {
+                case 'r':
+                    document.querySelector('#compositePreview [data-channel="red"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+
+                case 'g':
+                    document.querySelector('#compositePreview [data-channel="green"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+
+                case 'b':
+                    document.querySelector('#compositePreview [data-channel="blue"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+
+                case ' ':
+                    setDefaultCrosshairs(lastMouseEvent);
+                    event.preventDefault();
+                    break;
+            }
+        }
+        img.addEventListener('mouseenter', event => {
+            window.addEventListener('keypress', keypressListener);
+            lastMouseEvent = event;
+        });
+        img.addEventListener('mouseleave', event => {
+            window.removeEventListener('keypress', keypressListener);
+            lastMouseEvent = event;
+        });
+        img.addEventListener('mousemove', event => {
+            lastMouseEvent = event;
         })
     })
     img.loading='lazy';
@@ -458,6 +512,29 @@ function createImg(details, src) {
 
     return img;
 }
+
+document.addEventListener('keypress', event => {
+    function toggleVisible(element) {
+        element.style.display = element.style.display ? '' : 'none';
+    }
+    
+    switch (event.key) {
+        case 'R':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="red"] img'));
+            event.preventDefault();
+            break;
+
+        case 'G':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="green"] img'));
+            event.preventDefault();
+            break;
+
+        case 'B':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="blue"] img'));
+            event.preventDefault();
+            break;
+    }
+});
 
 const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];
 let imageZoom = parseFloat(zoomRule.style.zoom);
