@@ -465,7 +465,35 @@ function createImg(details, src) {
         });
         img.addEventListener('mouseleave', event => {
             div.innerText = '';
-        })
+        });
+
+        function keypressListener(event) {
+            switch (event.key) {
+                case 'r':
+                    document.querySelector('#compositePreview [data-channel="red"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+
+                case 'g':
+                    document.querySelector('#compositePreview [data-channel="green"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+
+                case 'b':
+                    document.querySelector('#compositePreview [data-channel="blue"] img').src = src;
+                    document.getElementById('compositePreview').open = true;
+                    event.preventDefault();
+                    break;
+            }
+        }
+        img.addEventListener('mouseenter', event => {
+            window.addEventListener('keypress', keypressListener);
+        });
+        img.addEventListener('mouseleave', event => {
+            window.removeEventListener('keypress', keypressListener);
+        });
     })
     img.loading='lazy';
 
