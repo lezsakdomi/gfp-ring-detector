@@ -513,6 +513,29 @@ function createImg(details, src) {
     return img;
 }
 
+document.addEventListener('keypress', event => {
+    function toggleVisible(element) {
+        element.style.display = element.style.display ? '' : 'none';
+    }
+    
+    switch (event.key) {
+        case 'R':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="red"] img'));
+            event.preventDefault();
+            break;
+
+        case 'G':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="green"] img'));
+            event.preventDefault();
+            break;
+
+        case 'B':
+            toggleVisible(document.querySelector('#compositePreview [data-channel="blue"] img'));
+            event.preventDefault();
+            break;
+    }
+});
+
 const zoomRule = [...document.styleSheets].find(css => css.ownerNode.id === 'zoomCss').cssRules[0];
 let imageZoom = parseFloat(zoomRule.style.zoom);
 let imageX = 0;
