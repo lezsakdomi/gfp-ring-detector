@@ -29,6 +29,7 @@ jobs:
   
   build-windows:
     runs-on: windows-latest
+    needs: [delete-old-artifacts]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
@@ -52,10 +53,7 @@ jobs:
           dist
 
   delete-old-artifacts:
-    needs: [ build-windows ]
     runs-on: ubuntu-latest
-    env:
-      GITHUB_RUN_ID: "${{ github.run_id }}"
     steps:
       - name: List, filter and delete artifacts
         uses: actions/github-script@v6
@@ -63,12 +61,12 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo
-            const run_id = context.run_id
+            // const run_id = context.run_id
             
-            const artifactIdsFromThisRun = await github.rest
-                .actions.listWorkflowRunArtifacts({owner, repo, run_id})
-                .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
-            console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
+            // const artifactIdsFromThisRun = await github.rest
+            //     .actions.listWorkflowRunArtifacts({owner, repo, run_id})
+            //     .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
+            // console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
             
             const {data: artifacts} = await github.rest
                 .actions.listArtifactsForRepo({owner, repo});
@@ -76,7 +74,7 @@ jobs:
             
             for (const artifact of artifacts) {
                 if (!artifact.name.match(/^dist-windows$/)) continue;
-                if (artifactIdsFromThisRun.contains(artifact.id)) continue;
+                // if (artifactIdsFromThisRun.contains(artifact.id)) continue;
                 
                 console.log(`Deleting artifact ${artifact.url}`);
                 const artifact_id = artifact.id;
