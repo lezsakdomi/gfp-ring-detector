@@ -1,0 +1,82 @@
+name: Build standalone executable
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+#  build-linux:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v3
+#    - name: Set up Python 3.10
+#      uses: actions/setup-python@v3
+#      with:
+#        python-version: "3.10"
+#    - name: Install dependencies
+#      run: |
+#        $CONDA/bin/conda env update --file conda-env.yml --name base
+#    - name: Build application
+#      run: |
+#        $CONDA/bin/conda activate base
+#        pyinstaller interactive-server.spec
+#    - name: Archive production artifacts
+#      uses: actions/upload-artifact@v3
+#      with:
+#        name: dist-linux
+#        path: |
+#          dist
+  
+  build-windows:
+    runs-on: windows-latest
+    needs: [delete-old-artifacts]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.10
+    - name: Install dependencies
+      run: |
+        C:\Miniconda\condabin\conda.bat env update --file conda-env.yml --name base
+        C:\Miniconda\condabin\conda.bat init powershell
+    - name: Build application
+      run: |
+        # Activate the base environment
+        C:\Miniconda\condabin\conda.bat activate base
+        pyinstaller.exe .\interactive-server.spec
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-windows
+        path: |
+          dist
+
+  delete-old-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List, filter and delete artifacts
+        uses: actions/github-script@v6
+        id: artifact
+        with:
+          script: |
+            const {owner, repo} = context.repo
+            // const run_id = context.run_id
+            
+            // const artifactIdsFromThisRun = await github.rest
+            //     .actions.listWorkflowRunArtifacts({owner, repo, run_id})
+            //     .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
+            // console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
+            
+            const {data: {artifacts}} = await github.rest
+                .actions.listArtifactsForRepo({owner, repo});
+            console.log(`Found ${artifacts.length} artifacts total`);
+            
+            for (const artifact of artifacts) {
+                if (!artifact.name.match(/^dist-windows$/)) continue;
+                // if (artifactIdsFromThisRun.contains(artifact.id)) continue;
+                
+                console.log(`Deleting artifact ${artifact.url}`);
+                const artifact_id = artifact.id;
+                await github.rest.actions.deleteArtifact({owner, repo, artifact_id});
+            }
