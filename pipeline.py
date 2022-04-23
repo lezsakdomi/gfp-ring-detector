@@ -164,8 +164,12 @@ class RingDetector(Pipeline):
             return GFP - th,
 
         @self.add_step
-        @Step.of(['rings_searched', 'rings_found', 'rings_too_small', 'all_granules', 'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
+        @Step.of(['rings_searched', 'all_granules',
+                  'rings_expected', 'rings_found', 'rings_too_small',
+                  'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
         def analyze_coordinates(all_coordinates, edges, edges_angle, GFP):
+            gfp_bin = GFP > 0
+
             def process_granule(o, r=15):
                 import scipy.ndimage as ndi
                 from skimage.measure import label, regionprops
@@ -236,13 +240,25 @@ class RingDetector(Pipeline):
                 from skimage.morphology import binary_erosion, disk
                 membrane = lumen_convex * ~binary_erosion(lumen_convex) * lumen_mask
 
-                return unclip(lumen_convex), unclip(membrane)
+                membrane = binary_dilation(membrane, disk(3))
+
+                masked = clip(gfp_bin)
+                masked[~membrane] = False
+                masked = thin(masked)
+
+                fake_masked = membrane.copy()
+                fake_masked = thin(fake_masked)
+
+                is_good = np.sum(masked) > np.sum(fake_masked) / 2
+
+                return unclip(lumen_convex), unclip(membrane), unclip(masked), unclip(fake_masked), is_good
 
             good_coordinates = []
             bad_coordinates = []
             lumens = np.zeros_like(edges)
             good_lumens = np.zeros_like(edges)
             bad_lumens = np.zeros_like(edges)
+            membrane_areas = np.zeros_like(edges)
             membranes = np.zeros_like(edges)
             good_membranes = np.zeros_like(edges)
             bad_membranes = np.zeros_like(edges)
@@ -253,30 +269,37 @@ class RingDetector(Pipeline):
                 if i % 100 == 0:
                     print('.', end='')
 
-                x, y, r = coords
-
-                lumen, membrane = process_granule((x, y), int(r + 5))
-                lumens[lumen] += 1
+                x, y = coords
+                r = 15
                 lumens[int(x), int(y)] += 1
-                membrane = binary_dilation(binary_dilation(membrane, disk(3)), disk(3))
-                membranes[membrane] += 1
 
-                masked = GFP > 0
-                masked[~membrane] = False
-                masked = thin(masked)
-                count = np.sum(masked)
-                if count > 30:
-                    good_coordinates.append(coords)
-                    good_lumens[lumen] += 1
-                    good_membranes[masked] += 1
-                else:
-                    bad_coordinates.append(coords)
-                    bad_lumens[lumen] += 1
-                    bad_membranes[masked] += 1
+                process_result = process_granule((x, y), int(r + 5))
+                if process_result is not None:
+                    lumen, membrane, ring, fake_ring, is_good = process_result
+
+                    if lumen is not None:
+                        lumens[lumen] += 1
+
+                    if membrane is not None:
+                        membrane_areas[membrane] += 1
+
+                    if fake_ring is not None:
+                        membranes[fake_ring] += 1
+
+                    if is_good is not None:
+                        if is_good:
+                            good_coordinates.append(coords)
+                            good_lumens[lumen] += 1
+                            good_membranes[ring] += 1
+                        else:
+                            bad_coordinates.append(coords)
+                            bad_lumens[lumen] += 1
+                            bad_membranes[ring] += 1
 
             print()
             return {
-                'rings_searched': membranes,
+                'rings_searched': membrane_areas,
+                'rings_expected': membranes,
                 'rings_found': good_membranes,
                 'rings_too_small': bad_membranes,
                 'all_granules': lumens,
