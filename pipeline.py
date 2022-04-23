@@ -268,12 +268,12 @@ class RingDetector(Pipeline):
             membranes = np.zeros_like(edges)
             good_membranes = np.zeros_like(edges)
             bad_membranes = np.zeros_like(edges)
-            print('_' * (len(all_coordinates) // 100 + 1))
+            # print('_' * (len(all_coordinates) // 100 + 1))
             for i, coords in enumerate(all_coordinates):
                 from skimage.morphology import disk, binary_dilation, thin
 
-                if i % 100 == 0:
-                    print('.', end='')
+                # if i % 100 == 0:
+                #     print('.', end='')
 
                 x, y = coords
                 r = 15
