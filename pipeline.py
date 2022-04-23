@@ -1,5 +1,6 @@
 from pipeline_lib import Step, Pipeline
 import numpy as np
+import math
 from copy import deepcopy
 
 
@@ -76,45 +77,72 @@ class RingDetector(Pipeline):
 
             return DsRed, GFP
 
-        for i in range(30, 31):
-            low_sigma = i / 15 * 4
-            high_sigma = (i + 1) / 15 * 4
+        @self.add_step
+        @Step.of(['edges_h', 'edges_v', 'edges', 'edges_colorful'],
+                 description="Edge detection using Sobel's algorithm")
+        def edge_detect(DsRed):
+            from skimage.filters import sobel_h, sobel_v, sobel
+            from skimage.color import hsv2rgb
 
-            def dog_func(i, low_sigma, high_sigma, DsRed):
-                from skimage.filters import difference_of_gaussians
-                return [difference_of_gaussians(DsRed, low_sigma),
-                        difference_of_gaussians(DsRed, high_sigma) - difference_of_gaussians(DsRed, low_sigma),
-                        difference_of_gaussians(DsRed, low_sigma, high_sigma)]
+            h, v, grayscale = sobel_h(DsRed), sobel_v(DsRed), sobel(DsRed)
+            colorful = hsv2rgb(np.dstack([
+                np.arctan2(h, v) / math.pi / 2 + (np.arctan2(h, v) < 0) * 1,
+                # np.sqrt(0.05 - (h*h+v*v)),
+                # grayscale / np.max(grayscale),
+                np.ones_like(grayscale),
+                np.minimum(grayscale, np.ones_like(grayscale))]))
+            # colorful = np.dstack([
+            #     np.abs(h),
+            #     np.abs(v),
+            #     np.abs(v),
+            # ])
+            # colorful[:, :, 1][v < 0] = 0
+            # colorful[:, :, 2][v > 0] = 0
 
-            from functools import partial
-            dog_func_partial = partial(dog_func, i, low_sigma, high_sigma)
+            return h, v, grayscale, colorful
 
-            self.add_step(dog_func_partial, name=f'dog_{i}', on=['DsRed'], of=['d', 'dd', 'd2'])
+        @self.add_step
+        @Step.of(['edges_h_abs', 'edges_v_abs', 'edges_angle'])
+        def edge_abs(edges_h, edges_v):
+            return np.abs(edges_h),\
+                   np.abs(edges_v),\
+                   np.arctan2(edges_h, edges_v) / math.pi / 2 + (np.arctan2(edges_h, edges_v) < 0) * 1
 
-        # return
+        # @self.add_step
+        @Step.of(['dd_h', 'dd_v', 'dd', 'dd_colorful'])
+        def edge_second_derivative(edges):
+            from skimage.filters import sobel_h, sobel_v, sobel
+            from skimage.color import hsv2rgb
+
+            h, v, grayscale = sobel_h(edges), sobel_v(edges), sobel(edges)
+            colorful = hsv2rgb(np.dstack([
+                np.arctan2(h, v) / math.pi / 2 + (np.arctan2(h, v) < 0) * 1,
+                np.ones_like(grayscale),
+                np.minimum(grayscale, np.ones_like(grayscale))]))
+
+            return h, v, grayscale, colorful
+        
+        # @self.add_step
+        @Step.of(['dd_h_abs', 'dd_v_abs', 'dd_angle'])
+        def dd_abs(dd_h, dd_v):
+            return np.abs(dd_h),\
+                   np.abs(dd_v),\
+                   np.arctan2(dd_h, dd_v) / math.pi / 2 + (np.arctan2(dd_h, dd_v) < 0) * 1
+
+        # @self.add_step
+        @Step.of(['ddd', 'angle_diff'])
+        def ddd(edges, edges_angle, dd, dd_angle):
+            return {
+                'ddd': np.abs(dd - edges),
+                'angle_diff': np.abs(edges_angle - dd_angle),
+            }
 
         @self.add_step
         @Step.of('all_coordinates')
         def find_granule_centers(DsRed):
-            from skimage.feature import peak_local_max
-            import numpy as np
-            coordinates = peak_local_max(DsRed, min_distance=15,
-                                         threshold_abs=0.6)
+            from skimage.feature import blob_doh
+            coordinates = blob_doh(DsRed, threshold=0.001, min_sigma=2, max_sigma=5)
             return list(coordinates)
-
-        @self.add_step
-        @Step.of(['DsRed'])
-        def flood_granule_areas(dd, all_coordinates):
-            # flood until dd > 0
-            import numpy as np
-            from skimage.segmentation import flood
-            labels = np.zeros(dd.shape, 'int')
-            for i, coord in all_coordinates:
-                flood(labels, coord, i + 1)
-                # TODO set returned mask to i+1
-                # everything else should be fine
-            labels = labels - 1
-            return labels,
 
         @self.add_step
         @Step.of(['GFP'])
@@ -136,83 +164,127 @@ class RingDetector(Pipeline):
             return GFP - th,
 
         @self.add_step
-        @Step.of(['rings_searched', 'rings_found', 'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
-        def analyze_coordinates(all_coordinates, DsRed, GFP):
-            from skimage.morphology import disk, dilation, erosion, skeletonize, thin
-            import numpy as np
+        @Step.of(['rings_searched', 'rings_found', 'rings_too_small', 'all_granules', 'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
+        def analyze_coordinates(all_coordinates, edges, edges_angle, GFP):
+            def process_granule(o, r=15):
+                import scipy.ndimage as ndi
+                from skimage.measure import label, regionprops
+
+                def clip_shapes(img):
+                    xf = int(o[0] - r)
+                    xt = int(o[0] + r + 1)
+                    yf = int(o[1] - r)
+                    yt = int(o[1] + r + 1)
+                    xfc = -xf if xf < 0 else 0
+                    yfc = -yf if yf < 0 else 0
+                    xtc = 0 if xt < img.shape[0] else img.shape[0] - xt - 1
+                    ytc = 0 if yt < img.shape[1] else img.shape[1] - yt - 1
+                    return (xf, xt, yf, yt), (xfc, xtc, yfc, ytc)
+
+                def clip(img):
+                    (xf, xt, yf, yt), (xfc, xtc, yfc, ytc) = clip_shapes(img)
+                    result = np.zeros((2*r+1, 2*r+1), dtype=img.dtype)
+                    result[xfc:2*r+1+xtc, yfc:2*r+1+ytc] = img[xf+xfc:xt+xtc, yf+yfc:yt+ytc]
+                    return result
+
+                def unclip(img):
+                    (xf, xt, yf, yt), (xfc, xtc, yfc, ytc) = clip_shapes(edges)
+                    result = np.zeros_like(edges, dtype=img.dtype)
+                    result[xf+xfc:xt+xtc, yf+yfc:yt+ytc] = img[xfc:2*r+1+xtc, yfc:2*r+1+ytc]
+                    return result
+
+                def process_projection(magnitude, angle, p=60):
+                    from skimage.filters import threshold_isodata
+
+                    sample_angle = np.fromfunction(lambda x, y: np.arctan2(x - r, y - r) / math.pi / 2, (2 * r + 1, 2 * r + 1))
+                    angle_diff = angle - sample_angle + (sample_angle > angle) * 1
+                    angle_diff[angle_diff > 0.5] -= 1
+                    angle_diff = (0.5 - np.abs(angle_diff)) / 0.5
+
+                    mul = (1 - angle_diff) * magnitude
+
+                    # magnitude_limit = np.percentile(magnitude, p)
+                    # angle_diff_limit = 0.5
+                    # mask = (magnitude > magnitude_limit) * (angle_diff < angle_diff_limit)
+                    # mask = mul > np.percentile(mul, 0.75)
+                    mask = mul > threshold_isodata(mul)
+
+                    return mask, mul, angle_diff
+
+                lumen_mask, lumen_prob, _ = process_projection(clip(edges), clip(edges_angle))
+                lumen_labels, lumen_count = label(lumen_mask, return_num=True)
+
+                best_lumen_regionprop = None
+                for regionprop in regionprops(lumen_labels, lumen_prob):
+                    def dist(regionprop):
+                        x, y = regionprop.centroid
+                        x -= r + 1
+                        y -= r + 1
+                        return math.sqrt(x * x + y * y)
+
+                    if best_lumen_regionprop is None:
+                        best_lumen_regionprop = regionprop
+                    elif dist(best_lumen_regionprop) > dist(regionprop):
+                        best_lumen_regionprop = regionprop
+
+                lumen_convex = np.zeros_like(lumen_mask, dtype=np.bool)
+                lumen_convex[
+                best_lumen_regionprop.bbox[0]:best_lumen_regionprop.bbox[2],
+                best_lumen_regionprop.bbox[1]:best_lumen_regionprop.bbox[3]] =\
+                    best_lumen_regionprop.image_convex
+
+                from skimage.morphology import binary_erosion, disk
+                membrane = lumen_convex * ~binary_erosion(lumen_convex) * lumen_mask
+
+                return unclip(lumen_convex), unclip(membrane)
 
             good_coordinates = []
             bad_coordinates = []
-            bad_floods = np.zeros_like(DsRed)
-            good_floods = np.zeros_like(DsRed)
-            all_floods = np.zeros_like(DsRed)
-            rings_searched = np.zeros_like(DsRed)
-            rings_found = np.zeros_like(DsRed)
-            print('.' * (len(all_coordinates) // 10 - len("[x/x] Executing step extract_coordinates...") + 1))
-            for i, coord in enumerate(all_coordinates):
+            lumens = np.zeros_like(edges)
+            good_lumens = np.zeros_like(edges)
+            bad_lumens = np.zeros_like(edges)
+            membranes = np.zeros_like(edges)
+            good_membranes = np.zeros_like(edges)
+            bad_membranes = np.zeros_like(edges)
+            print('_' * (len(all_coordinates) // 10 + 1))
+            for i, coords in enumerate(all_coordinates):
+                from skimage.morphology import disk, binary_dilation, thin
+
                 if i % 10 == 0:
                     print('.', end='')
-                x, y = coord
-                if bad_floods[x, y]:
-                    bad_coordinates.append(coord)
+
+                x, y, r = coords
+
+                lumen, membrane = process_granule((x, y), int(r + 5))
+                lumens[lumen] += 1
+                lumens[int(x), int(y)] += 1
+                membrane = binary_dilation(binary_dilation(membrane, disk(3)), disk(3))
+                membranes[membrane] += 1
+
+                masked = GFP > 0
+                masked[~membrane] = False
+                masked = thin(masked)
+                count = np.sum(masked)
+                if count > 30:
+                    good_coordinates.append(coords)
+                    good_lumens[lumen] += 1
+                    good_membranes[masked] += 1
                 else:
-                    current_flood = DsRed == i
-                    masked = np.zeros_like(DsRed, dtype=float)
-                    masked[current_flood] = 1
+                    bad_coordinates.append(coords)
+                    bad_lumens[lumen] += 1
+                    bad_membranes[masked] += 1
 
-                    w = 35
-                    h = 35
-
-                    if x < w or x+w >= DsRed.shape[0] or y < h or y + h >= DsRed.shape[1]:
-                        continue
-
-                    def clip(large):
-                        clipped = np.zeros((2*w, 2*h), dtype=large.dtype)
-                        clipped[0:2*w, 0:2*h] = large[x-w:x+w, y-h:y+h]
-                        return clipped
-
-                    def unclip(clipped, background=None):
-                        if background is None:
-                            background = np.zeros_like(DsRed, dtype=clipped.dtype)
-                        else:
-                            background = np.copy(background)
-                        background[x-w:x+w, y-h:y+h] = clipped[0:2*w, 0:2*h]
-                        return background
-
-                    # print()
-                    # print(f"({x},___) --> ({np.average(np.arange(0, masked.shape[0])[masked[:, y] > 0])},{y})")
-                    # print(f"(___,{y}) --> ({x},{np.average(np.arange(0, masked.shape[1])[masked[x, :] > 0])})")
-
-                    masked = clip(masked)
-                    all_floods[unclip(masked) > 0] = 1
-
-                    # inner_avg = np.average(GFP[unclip(masked) > 0])
-
-                    masked = dilation(masked, disk(3))
-                    masked = dilation(masked, disk(3)) - masked
-                    rings_searched[unclip(masked) > 0] = 1
-                    # ring_avg = np.average(GFP[unclip(masked) > 0])
-
-                    masked = np.minimum(clip(GFP), masked)
-                    masked = masked > 0
-
-                    if masked.size == 0:
-                        bad_coordinates.append(coord)
-                        # not touching bad_floods
-                        continue
-
-                    masked = thin(masked)
-                    count = np.sum(masked)
-                    rings_found[unclip(masked) > 0] = count
-
-                    if count > 30:
-                        good_coordinates.append(coord)
-                        good_floods[current_flood] = 1
-                    else:
-                        bad_coordinates.append(coord)
-                        bad_floods[current_flood] = 1
-
-            return rings_searched, rings_found, good_coordinates, good_floods, bad_coordinates, bad_floods
+            print()
+            return {
+                'rings_searched': membranes,
+                'rings_found': good_membranes,
+                'rings_too_small': bad_membranes,
+                'all_granules': lumens,
+                'good_coordinates': good_coordinates,
+                'good_granules': good_lumens,
+                'bad_coordinates': bad_coordinates,
+                'bad_granules': bad_lumens,
+            }
 
         @self.add_step
         @Step.of('stat_text')
