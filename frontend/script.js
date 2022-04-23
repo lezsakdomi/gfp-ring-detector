@@ -398,7 +398,7 @@ function createImg(details, src) {
     img.src = src;
     let match;
     // noinspection JSAssignmentUsedAsCondition
-    if (match = src.match(/#(-?\d+(?:\.\d+)?)..(-?\d+(?:\.\d+)?)$/)) {
+    if (match = src.match(/#(-?\d+(?:\.\d+)?|-?\d\.\d+e-?\d+)..(-?\d+(?:\.\d+)?|-?\d\.\d+e-?\d+)$/)) {
         const [, min, max] = match;
         img.dataset.minValue = min;
         img.dataset.maxValue = max;
