@@ -52,13 +52,7 @@ class RingDetector(Pipeline):
             from toml import load
             from os import path
             from list_targets import default_dataset
-            try:
-                dataset_options = load(path.join(default_dataset, 'dataset.toml'))
-            except FileNotFoundError:
-                dataset_options = {'channels': {'DsRed': 0, 'GFP': 1, 'DAPI': 2}}
-                with open(path.join(default_dataset, 'dataset.toml'), 'w') as f:
-                    from toml import dump
-                    dump(dataset_options, f)
+            dataset_options = load(path.join(default_dataset, 'dataset.toml'))
             DsRed = chread(dataset_options['channels']['DsRed'])
             GFP = chread(dataset_options['channels']['GFP'])
             DAPI = chread(dataset_options['channels']['DAPI'])
