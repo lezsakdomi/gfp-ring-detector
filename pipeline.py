@@ -1,5 +1,6 @@
 from pipeline_lib import Step, Pipeline
 import numpy as np
+import math
 from copy import deepcopy
 
 
@@ -21,14 +22,14 @@ class RingDetector(Pipeline):
     def _add_to_img5(self, step, pipeline, state, completed=False, step_index=0, *args, **kwargs):
         import numpy as np
 
-        outputs = ['DsRed', 'GFP', 'DAPI']
+        outputs = ['DsRed', 'GFP', 'd', 'dd']
         shape = (1040, 1388)
 
         if completed:
             images5 = []
             for c, out in enumerate(outputs):
                 if out in state:
-                    img = state[out].copy()
+                    img = deepcopy(state[out])
                 else:
                     img = np.zeros(shape)
                 images5.append([img])
@@ -63,179 +64,262 @@ class RingDetector(Pipeline):
         @Step.of(['DsRed', 'GFP'])
         def clean(DsRed, GFP):
             from skimage.filters import gaussian
+            from skimage.filters.rank import minimum
+            from skimage.morphology import disk
+            from skimage.util import img_as_ubyte
+            from skimage.exposure import adjust_gamma
 
             DsRed = gaussian(DsRed, 1)
             GFP = gaussian(GFP, 1)
-            # TODO median proba
+            DsRed[minimum(img_as_ubyte(DsRed), disk(30)) > 80] = 0
+
+            # DsRed = adjust_gamma(DsRed, 5)
 
             return DsRed, GFP
 
         @self.add_step
-        @Step.of(['DsRed', 'GFP'],
-                 description="Extracting circular features - converting disks to circles")
-        def circlize(DsRed, GFP):
-            from skimage.morphology import erosion, dilation, disk
+        @Step.of(['edges_h', 'edges_v', 'edges', 'edges_colorful'],
+                 description="Edge detection using Sobel's algorithm")
+        def edge_detect(DsRed):
+            from skimage.filters import sobel_h, sobel_v, sobel
+            from skimage.color import hsv2rgb
+
+            h, v, grayscale = sobel_h(DsRed), sobel_v(DsRed), sobel(DsRed)
+            colorful = hsv2rgb(np.dstack([
+                np.arctan2(h, v) / math.pi / 2 + (np.arctan2(h, v) < 0) * 1,
+                # np.sqrt(0.05 - (h*h+v*v)),
+                # grayscale / np.max(grayscale),
+                np.ones_like(grayscale),
+                np.minimum(grayscale, np.ones_like(grayscale))]))
+            # colorful = np.dstack([
+            #     np.abs(h),
+            #     np.abs(v),
+            #     np.abs(v),
+            # ])
+            # colorful[:, :, 1][v < 0] = 0
+            # colorful[:, :, 2][v > 0] = 0
+
+            return h, v, grayscale, colorful
+
+        @self.add_step
+        @Step.of(['edges_h_abs', 'edges_v_abs', 'edges_angle'])
+        def edge_abs(edges_h, edges_v):
+            return np.abs(edges_h),\
+                   np.abs(edges_v),\
+                   np.arctan2(edges_h, edges_v) / math.pi / 2 + (np.arctan2(edges_h, edges_v) < 0) * 1
+
+        # @self.add_step
+        @Step.of(['dd_h', 'dd_v', 'dd', 'dd_colorful'])
+        def edge_second_derivative(edges):
+            from skimage.filters import sobel_h, sobel_v, sobel
+            from skimage.color import hsv2rgb
+
+            h, v, grayscale = sobel_h(edges), sobel_v(edges), sobel(edges)
+            colorful = hsv2rgb(np.dstack([
+                np.arctan2(h, v) / math.pi / 2 + (np.arctan2(h, v) < 0) * 1,
+                np.ones_like(grayscale),
+                np.minimum(grayscale, np.ones_like(grayscale))]))
+
+            return h, v, grayscale, colorful
+        
+        # @self.add_step
+        @Step.of(['dd_h_abs', 'dd_v_abs', 'dd_angle'])
+        def dd_abs(dd_h, dd_v):
+            return np.abs(dd_h),\
+                   np.abs(dd_v),\
+                   np.arctan2(dd_h, dd_v) / math.pi / 2 + (np.arctan2(dd_h, dd_v) < 0) * 1
+
+        # @self.add_step
+        @Step.of(['ddd', 'angle_diff'])
+        def ddd(edges, edges_angle, dd, dd_angle):
+            return {
+                'ddd': np.abs(dd - edges),
+                'angle_diff': np.abs(edges_angle - dd_angle),
+            }
+
+        @self.add_step
+        @Step.of('all_coordinates')
+        def find_granule_centers(DsRed):
+            from skimage.feature import peak_local_max
+            import numpy as np
+            coordinates = peak_local_max(DsRed, min_distance=15,
+                                         threshold_abs=0.6)
+            return list(coordinates)
+
+        @self.add_step
+        @Step.of(['GFP'])
+        def threshold(GFP):
+            from skimage.morphology import disk
+            from skimage.util import img_as_float, img_as_ubyte
+            from skimage.filters.rank import mean, percentile
             from skimage.filters import threshold_local
+            import numpy as np
 
-            # Regions in GFP under granules can't be considered meaningful, masking them out to NaN
-            GFP[erosion(DsRed, disk(2)) > threshold_local(erosion(DsRed, disk(2)), 19, 'median')] = np.nan
-
-            # Extracting the granule membranes
-            DsRed = dilation(DsRed, disk(3)) - erosion(DsRed, disk(1))
-
-            return DsRed, GFP
-
-        # TODO skip this step for more accuracy
-        #      needs replacing hough_circle with custom algo
-        @self.add_step
-        @Step.of(['DsRed', 'GFP'],
-                 description="Converting grayscale images to binary images, essentially thresholding")
-        # Instead of returning True/False values, returns an image, where black means False and the original value means True
-        def binarize(DsRed, GFP):
-            from skimage.filters.rank import percentile
-            from skimage.morphology import disk, binary_opening
-            from skimage.util import img_as_ubyte, img_as_float
-
-            # DsRed has no exposure variance; thresholding over the average is enough
-            DsRed_bin = DsRed > np.average(DsRed)
-
-            # GFP is a bit trickier: A pixel is kept, if its value is greater than
-            # the 75th percentile in its 40x40 circular neighbourhood
-            GFP_bin = GFP > img_as_float(percentile(img_as_ubyte(GFP), disk(20), p0=0.75))
-
-            # Setting the actual return values (=0 or >0)
-            DsRed[~DsRed_bin] = 0
-            GFP[~GFP_bin] = 0
-
-            return DsRed, GFP
+            selem = disk(8)
+            # GFP = img_as_ubyte(GFP)
+            # th = mean(GFP, selem)
+            # mean_mask = th < percentile(GFP, selem, p0=0.75)
+            # th[mean_mask] = ((percentile(GFP, selem, p0=0.75) + th) / 2)[mean_mask]
+            th = threshold_local(GFP, 15, offset=-0.01)
+            # th = img_as_float(th)
+            # GFP = img_as_float(GFP)
+            return GFP - th,
 
         @self.add_step
-        @Step.of('GFP')
-        # Applies the mask of DsRed to GFP - used to filter out false positives
-        def binary_mask(DsRed, GFP):
-            GFP[DsRed == 0] = 0
+        @Step.of(['rings_searched', 'all_granules',
+                  'rings_expected', 'rings_found', 'rings_too_small',
+                  'good_coordinates', 'good_granules', 'bad_coordinates', 'bad_granules'])
+        def analyze_coordinates(all_coordinates, edges, edges_angle, GFP):
+            gfp_bin = GFP > 0
 
-            return GFP
+            def process_granule(o, r=15):
+                import scipy.ndimage as ndi
+                from skimage.measure import label, regionprops
 
-        @self.add_step(details="being debugged")
-        @Step.of(['DsRed', 'GFP'],
-                 description="Simple hough transformation")
-        def hough(DsRed, GFP):
-            from skimage.transform import hough_circle
+                def clip_shapes(img):
+                    xf = int(o[0] - r)
+                    xt = int(o[0] + r + 1)
+                    yf = int(o[1] - r)
+                    yt = int(o[1] + r + 1)
+                    xfc = -xf if xf < 0 else 0
+                    yfc = -yf if yf < 0 else 0
+                    xtc = 0 if xt < img.shape[0] else img.shape[0] - xt - 1
+                    ytc = 0 if yt < img.shape[1] else img.shape[1] - yt - 1
+                    return (xf, xt, yf, yt), (xfc, xtc, yfc, ytc)
 
-            # Since the size of the granule is unknown, trying multiple radiuses
-            radius = np.arange(8, 15)
+                def clip(img):
+                    (xf, xt, yf, yt), (xfc, xtc, yfc, ytc) = clip_shapes(img)
+                    result = np.zeros((2*r+1, 2*r+1), dtype=img.dtype)
+                    result[xfc:2*r+1+xtc, yfc:2*r+1+ytc] = img[xf+xfc:xt+xtc, yf+yfc:yt+ytc]
+                    return result
 
-            # Applying binary hough transformation to both DsRed and GFP
-            DsRed = np.amax(hough_circle(DsRed, radius), axis=0)
-            GFP = np.amax(hough_circle(GFP, radius), axis=0)
+                def unclip(img):
+                    (xf, xt, yf, yt), (xfc, xtc, yfc, ytc) = clip_shapes(edges)
+                    result = np.zeros_like(edges, dtype=img.dtype)
+                    result[xf+xfc:xt+xtc, yf+yfc:yt+ytc] = img[xfc:2*r+1+xtc, yfc:2*r+1+ytc]
+                    return result
 
-            # Making intenser values more intense by squaring the images
-            DsRed = DsRed ** 2
-            GFP = GFP ** 2
+                def process_projection(magnitude, angle, p=60):
+                    from skimage.filters import threshold_isodata
 
-            return DsRed, GFP
+                    sample_angle = np.fromfunction(lambda x, y: np.arctan2(x - r, y - r) / math.pi / 2, (2 * r + 1, 2 * r + 1))
+                    angle_diff = angle - sample_angle + (sample_angle > angle) * 1
+                    angle_diff[angle_diff > 0.5] -= 1
+                    angle_diff = (0.5 - np.abs(angle_diff)) / 0.5
 
-        @self.add_step
-        @Step.of(['stat_text', 'stat_image'])
-        def calc(DsRed, GFP):
-            stat_text = []
-            if fname_template is not None:
-                stat_text.append(f"fname_template: {fname_template}\n")
-            stat_text.append(f"Scalar ratio: {np.sum(GFP.astype(np.float64)) / np.sum(DsRed.astype(np.float64))}\n")
-            stat_text.append(f"Scalar positives: {np.average(GFP.astype(np.float64))}\n")
+                    mul = (1 - angle_diff) * magnitude
 
-            stat_image = GFP * 2 - DsRed
-            stat_image[stat_image < 0] = 0
-            stat_text.append(f"Stat: {np.average(stat_image)}\n")
+                    # magnitude_limit = np.percentile(magnitude, p)
+                    # angle_diff_limit = 0.5
+                    # mask = (magnitude > magnitude_limit) * (angle_diff < angle_diff_limit)
+                    # mask = mul > np.percentile(mul, 0.75)
+                    mask = mul > threshold_isodata(mul)
 
-            # Instead of saving just the stat, also add the final DsRed and GFP channels for further inspection
-            stat_image = np.dstack([DsRed, GFP, stat_image])
+                    return mask, mul, angle_diff
 
-            return stat_text, stat_image
+                lumen_mask, lumen_prob, _ = process_projection(clip(edges), clip(edges_angle))
+                lumen_labels, lumen_count = label(lumen_mask, return_num=True)
 
-        @self.add_step
-        @Step.of(['good_coordinates', 'bad_coordinates', 'all_coordinates'])
-        def find_coordinates(DsRed, GFP):
-            # Helper function to locate circle centers after hough transformation
-            def extract_coordinates(img, *masks):
-                """
-                Creates a list of peak coordinates from an image and a list of masks
+                best_lumen_regionprop = None
+                for regionprop in regionprops(lumen_labels, lumen_prob):
+                    def dist(regionprop):
+                        x, y = regionprop.centroid
+                        x -= r + 1
+                        y -= r + 1
+                        return math.sqrt(x * x + y * y)
 
-                :param img: Image to search peak values on
-                :param masks: Array of (img, threshold, invert_threshold) tuples
-                :return: list of (x, y) tuples
-                """
-                from skimage.feature import peak_local_max
-                coords = peak_local_max(img, min_distance=15)
-                mask = np.ones_like(img) > 0
-                while len(masks) > 0:
-                    from skimage.filters.rank import maximum
-                    from skimage.morphology import disk
-                    from skimage.util import img_as_ubyte, img_as_float
+                    if best_lumen_regionprop is None:
+                        best_lumen_regionprop = regionprop
+                    elif dist(best_lumen_regionprop) > dist(regionprop):
+                        best_lumen_regionprop = regionprop
 
-                    # shift the current mask to (mask_img, th, invert_th)
-                    mask_img, th, invert_th = masks[0] + (img, 0.5, False)[len(masks[0]):]
-                    masks = masks[1:]
+                lumen_convex = np.zeros_like(lumen_mask, dtype=np.bool)
+                lumen_convex[
+                best_lumen_regionprop.bbox[0]:best_lumen_regionprop.bbox[2],
+                best_lumen_regionprop.bbox[1]:best_lumen_regionprop.bbox[3]] =\
+                    best_lumen_regionprop.image_convex
 
-                    mask_img = np.minimum(np.maximum(mask_img,
-                                                     np.zeros_like(img)),
-                                          np.ones_like(img))
-                    mask_img = img_as_float(maximum(img_as_ubyte(mask_img), disk(5)))
-                    bin = mask_img > th
-                    if invert_th:
-                        bin = ~bin
-                    mask[~bin] = False
+                from skimage.morphology import binary_erosion, disk
+                membrane = lumen_convex * ~binary_erosion(lumen_convex) * lumen_mask
 
-                coords = filter(lambda coord: mask[coord[0], coord[1]], coords)
-                coords = list(coords)
-                return coords
+                membrane = binary_dilation(membrane, disk(3))
 
-            # Good coordinates are circle centers on DsRed, where there is a nearby circle center (DsRed) value at least 0.5 and
-            # there is a nearby GFP value at least 0.35
-            good_coordinates = extract_coordinates(DsRed, (), (GFP, 0.35, False))
+                masked = clip(gfp_bin)
+                masked[~membrane] = False
+                masked = thin(masked)
 
-            # Bad coordinates are similar to good coordinates, but the GFP mask is flipped
-            bad_coordinates = extract_coordinates(DsRed, (), (GFP, 0.35, True))
+                fake_masked = membrane.copy()
+                fake_masked = thin(fake_masked)
 
-            # All coordinates do not have any GFP filter
-            all_coordinates = extract_coordinates(DsRed, ())
+                is_good = np.sum(masked) > np.sum(fake_masked) / 2
 
-            return good_coordinates, bad_coordinates, all_coordinates
+                return unclip(lumen_convex), unclip(membrane), unclip(masked), unclip(fake_masked), is_good
+
+            good_coordinates = []
+            bad_coordinates = []
+            lumens = np.zeros_like(edges)
+            good_lumens = np.zeros_like(edges)
+            bad_lumens = np.zeros_like(edges)
+            membrane_areas = np.zeros_like(edges)
+            membranes = np.zeros_like(edges)
+            good_membranes = np.zeros_like(edges)
+            bad_membranes = np.zeros_like(edges)
+            # print('_' * (len(all_coordinates) // 100 + 1))
+            for i, coords in enumerate(all_coordinates):
+                from skimage.morphology import disk, binary_dilation, thin
+
+                # if i % 100 == 0:
+                #     print('.', end='')
+
+                x, y = coords
+                r = 15
+                lumens[int(x), int(y)] += 1
+
+                process_result = process_granule((x, y), int(r + 5))
+                if process_result is not None:
+                    lumen, membrane, ring, fake_ring, is_good = process_result
+
+                    if lumen is not None:
+                        lumens[lumen] += 1
+
+                    if membrane is not None:
+                        membrane_areas[membrane] += 1
+
+                    if fake_ring is not None:
+                        membranes[fake_ring] += 1
+
+                    if is_good is not None:
+                        if is_good:
+                            good_coordinates.append(coords)
+                            good_lumens[lumen] += 1
+                            good_membranes[ring] += 1
+                        else:
+                            bad_coordinates.append(coords)
+                            bad_lumens[lumen] += 1
+                            bad_membranes[ring] += 1
+
+            print()
+            return {
+                'rings_searched': membrane_areas,
+                'rings_expected': membranes,
+                'rings_found': good_membranes,
+                'rings_too_small': bad_membranes,
+                'all_granules': lumens,
+                'good_coordinates': good_coordinates,
+                'good_granules': good_lumens,
+                'bad_coordinates': bad_coordinates,
+                'bad_granules': bad_lumens,
+            }
 
         @self.add_step
         @Step.of('stat_text')
-        def count(stat_text, good_coordinates, bad_coordinates, all_coordinates):
+        def count(all_coordinates, good_coordinates, bad_coordinates):
+            stat_text = []
             stat_text.append(f"Count: {len(all_coordinates)}\n")
             stat_text.append(f"Hit count: {len(good_coordinates)}\n")
             stat_text.append(f"Miss count: {len(bad_coordinates)}\n")
-            stat_text.append(f"Ratio: {len(good_coordinates) / len(all_coordinates)}\n")
+            stat_text.append(f"Ratio: {len(good_coordinates) / (len(good_coordinates) + len(bad_coordinates))}\n")
             return stat_text
-
-        if interactive:
-            # Interactive mode has two more, kinda useless steps, only for demonstration purposes
-
-            @self.add_step
-            @Step.of(['DsRed', 'GFP'])
-            # If we blur the image, the misaligned GFP and DsRed centers are displayed on the same pixel,
-            # thus we can tell using a human eye much more of a given pixel by its lightness and its hue
-            def blur(DsRed, GFP):
-                from skimage.filters import gaussian
-
-                sigma = 15
-                DsRed = gaussian(DsRed, sigma)
-                GFP = gaussian(GFP, sigma)
-
-                return DsRed, GFP
-
-            @self.add_step
-            @Step.of('ratio')
-            # Replaces the whole display with a grayscale image of "good" regions
-            def visual_calc(DsRed, GFP):
-                ratio = GFP * 1.5 - DsRed
-                ratio[ratio < 0] = 0
-
-                return ratio
 
         self.seal_steps()
 
@@ -259,7 +343,7 @@ class RingDetector(Pipeline):
                 commands = ',T'
                 # commands = ',,,,,vET'
                 #
-                if self.find_step('find_coordinates')._completed.is_set():
+                if self.find_step('extract_coordinates')._completed.is_set():
                     markers = [
                         (self.state['good_coordinates'], 0x00FF00),
                         (self.state['bad_coordinates'], 0x0000FF),
@@ -320,8 +404,7 @@ def run_application(fname_template, folder=None, interactive=False):
     import sys
 
     pipeline = RingDetector(fname_template, interactive=interactive)
-    stat_text, good_coordinates, bad_coordinates, all_coordinates, stat_image = pipeline.run(
-        ['stat_text', 'good_coordinates', 'bad_coordinates', 'all_coordinates', 'stat_image'])
+    stat_text, = pipeline.run(['stat_text'])
 
     if interactive:
         print()
@@ -336,22 +419,6 @@ def run_application(fname_template, folder=None, interactive=False):
 
         # In non-interactive mode saving all output to the folder given by CLI argument
         open(folder + '/stats.txt', 'w').writelines(stat_text)
-        open(folder + '/granules-with-rings.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in good_coordinates])
-        open(folder + '/granules-without-rings.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in bad_coordinates])
-        open(folder + '/granules.txt', 'w').writelines(
-            ['\t'.join(map(str, reversed(coord))) + '\n' for coord in all_coordinates])
-
-        from skimage.io import imsave
-        from skimage.util import img_as_ubyte
-
-        # Sometimes stat values are out of range; fixing
-        stat_image[stat_image > 1] = 1
-        stat_image[stat_image < 0] = 0
-
-        imsave(folder + '/stats.tif', img_as_ubyte(stat_image))
-
 
 def main(argv, stderr):
     fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
