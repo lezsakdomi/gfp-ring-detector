@@ -39,7 +39,7 @@ jobs:
           sudo gem install liquid-cli
           mkdir -p ~/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          wget -o ~/.local/bin/plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2022.4/plantuml-1.2022.4.jar
+          wget -O ~/.local/bin/plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2022.4/plantuml-1.2022.4.jar
           echo '#!/bin/bash' >~/.local/bin/plantuml
           echo 'java -jar -Djava.net.useSystemProxies=true ~/.local/bin/plantuml.jar ${@}' >>~/.local/bin/plantuml
           chmod +x ~/.local/bin/plantuml
