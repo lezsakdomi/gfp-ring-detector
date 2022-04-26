@@ -5,31 +5,8 @@ on:
     branches: [ master ]
 
 jobs:
-#  build-linux:
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v3
-#    - name: Set up Python 3.10
-#      uses: actions/setup-python@v3
-#      with:
-#        python-version: "3.10"
-#    - name: Install dependencies
-#      run: |
-#        $CONDA/bin/conda env update --file conda-env.yml --name base
-#    - name: Build application
-#      run: |
-#        $CONDA/bin/conda activate base
-#        pyinstaller interactive-server.spec
-#    - name: Archive production artifacts
-#      uses: actions/upload-artifact@v3
-#      with:
-#        name: dist-linux
-#        path: |
-#          dist
-  
-  build-windows:
+  build-dist-windows:
     runs-on: windows-latest
-    needs: [delete-old-artifacts]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
@@ -52,31 +29,46 @@ jobs:
         path: |
           dist
 
-  delete-old-artifacts:
+  build-doc:
     runs-on: ubuntu-latest
     steps:
-      - name: List, filter and delete artifacts
-        uses: actions/github-script@v6
-        id: artifact
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y pandoc python3-pip ruby jq
+          sudo pip install pandoc-plantuml-filter
+          sudo gem install liquid-cli
+          mkdir -p ~/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          wget -o ~/.local/bin/plantuml https://github.com/plantuml/plantuml/releases/download/v1.2022.4/plantuml-1.2022.4.jar
+          chmod +x ~/.local/bin/plantuml
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Prepare documentation
+        run: liquid <doc.md >doc.prep.md "$(jq -n env)"
+        working-directory: doc
+      - name: Build documentation as HTML
+        run: pandoc -o doc.html doc.prep.md --filter pandoc-plantuml
+        working-directory: doc
+      - uses: actions/upload-artifact@v3
         with:
-          script: |
-            const {owner, repo} = context.repo
-            // const run_id = context.run_id
-            
-            // const artifactIdsFromThisRun = await github.rest
-            //     .actions.listWorkflowRunArtifacts({owner, repo, run_id})
-            //     .then(({data: {artifacts}}) => artifacts.map(({id}) => id));
-            // console.log(`Artifacts from this run: ${artifactIdsFromThisRun.join(', ')}`);
-            
-            const {data: {artifacts}} = await github.rest
-                .actions.listArtifactsForRepo({owner, repo});
-            console.log(`Found ${artifacts.length} artifacts total`);
-            
-            for (const artifact of artifacts) {
-                if (!artifact.name.match(/^dist-windows$/)) continue;
-                // if (artifactIdsFromThisRun.contains(artifact.id)) continue;
-                
-                console.log(`Deleting artifact ${artifact.url}`);
-                const artifact_id = artifact.id;
-                await github.rest.actions.deleteArtifact({owner, repo, artifact_id});
-            }
+          name: doc-html
+          path: |
+            doc/index.html
+            doc/doc.html
+            doc/plantuml-images/
+
+  deploy-pages:
+    runs-on: ubuntu-latest
+    needs: [build-doc, build-dist-windows]
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: doc-html
+      - uses: actions/download-artifact@v3
+        with:
+          name: dist-windows
+          path: dist-windows
+      - uses: JamesIves/github-pages-deploy-action@v4.3.0
+        with:
+          branch: gh-pages
+          folder: .
