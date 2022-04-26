@@ -34,12 +34,14 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get install -y pandoc python3-pip ruby jq
+          sudo apt-get install -y pandoc python3-pip ruby jq default-jre
           sudo pip install pandoc-plantuml-filter
           sudo gem install liquid-cli
           mkdir -p ~/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          wget -o ~/.local/bin/plantuml https://github.com/plantuml/plantuml/releases/download/v1.2022.4/plantuml-1.2022.4.jar
+          wget -o ~/.local/bin/plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2022.4/plantuml-1.2022.4.jar
+          echo '#!/bin/bash' >~/.local/bin/plantuml
+          echo 'java -jar -Djava.net.useSystemProxies=true ~/.local/bin/plantuml.jar ${@}' >>~/.local/bin/plantuml
           chmod +x ~/.local/bin/plantuml
       - name: Checkout
         uses: actions/checkout@v3
