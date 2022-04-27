@@ -28,6 +28,7 @@ jobs:
         name: dist-windows
         path: |
           dist
+        retention-days: 3
 
   build-doc:
     runs-on: ubuntu-latest
