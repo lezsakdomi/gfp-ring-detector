@@ -18,7 +18,7 @@ formájában kerül terjesztésre.
 
 Az alább dokumentált változat letölthető itt:
 [gfp-ring-detector.exe](dist-windows/gfp-ring-detector.exe)
-(Forráskód: [{{ GITHUB_REF_NAME }}, {{ "now" | date: "%F %R" }}](https://github.com/{{ GITHUB_ACTION_REPOSITORY }}/tree/{{ GITHUB_SHA }}))
+(Forráskód: [{{ GITHUB_REF_NAME }}, {{ "now" | date: "%F %R" }}](https://github.com/{{ GITHUB_REPOSITORY }}/tree/{{ GITHUB_SHA }}))
 
 A legutóbbi automatikus build letölthető a következő linkkel,
 amennyiben az elmúlt 90 napban volt frissítés:
