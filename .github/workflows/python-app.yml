@@ -61,8 +61,7 @@ jobs:
             doc/plantuml-images/
 
   deploy-pages:
-    permissions:
-      pages: write
+    permissions: write-all
     runs-on: ubuntu-latest
     needs: [build-doc, build-dist-windows]
     steps:
