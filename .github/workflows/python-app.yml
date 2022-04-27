@@ -73,7 +73,7 @@ jobs:
       - name: Initialize git repository for deployment
         run: |
           git init
-          git -c user.name="CI" user.email="actions@github.com" commit -m "Initial commit" --allow-empty
+          git -c user.name="CI" -c user.email="actions@github.com" commit -m "Initial commit" --allow-empty
       - uses: JamesIves/github-pages-deploy-action@v4.3.0
         with:
           branch: gh-pages
