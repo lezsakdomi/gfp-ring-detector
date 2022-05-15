@@ -35,7 +35,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get install -y pandoc python3-pip ruby jq default-jre
+          sudo apt-get install -y pandoc python3-pip ruby jq default-jre graphviz
           sudo pip install pandoc-plantuml-filter
           sudo gem install liquid-cli
           mkdir -p ~/.local/bin
