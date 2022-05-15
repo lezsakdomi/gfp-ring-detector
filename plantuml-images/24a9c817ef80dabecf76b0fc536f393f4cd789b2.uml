@@ -1,0 +1,159 @@
+@startuml
+!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+
+start
+
+card #2e2e2e """load""" {
+    :""dataset.toml"" beolvasása\\
+    :DsRed beolvasása\\
+    :GFP beolvasása\\
+    :DAPI beolvasása\\
+    :DsRed, GFP, DAPI>
+}
+
+card #2e2e2e """clean""" {
+    :""DsRed"", ""GFP""<
+    :DsRed gauss elmosás (σ=1);
+    :GFP gauss elmosás (σ=1);
+    :DsRed kiégett részeinek törlése (r=30, i>80);
+    :""DsRed"", ""GFP"">
+}
+
+card #2e2e2e """edge_detect""" {
+    :""DsRed""<
+    :Sobel-féle deriválás (vízszintesen);
+    note right: ""edges_h""
+    :Sobel-féle deriválás (függőlegesen);
+    note right: ""edges_v""
+    :Sobel-féle deriválás (abszolútértékben);
+    note right: ""edges""
+    partition "Színes kép előállítása"
+        :Szög számítása vízszintes/függőleges között;
+        note: hue
+        :Teljesen fehér kép generálása;
+        note: saturation
+        :Abszolút derivált maximalizálásra 1-re;
+        note: value
+        :""hsv2rgb(hue, saturation, value)""]
+        note right: ""edges""
+    end group
+    :""edges_h"", ""edges_v"", ""edges"", ""edges_colorful"">
+}
+
+card #2e2e2e """edge_abs""" {
+    :""edges_h"", ""edges_v""<
+    :Abszolútérték (vízszintes deriválton);
+    :Abszolútérték (függőleges deriválton);
+    :Szög számítása vízszintes/függőleges között;
+    :""edges_h_abs"", ""edges_v_abs"", ""edges_angle"">
+}
+
+card #2e2e2e """find_granule_centers""" {
+    :""DsRed""<
+    :Lokális maximumok megkeresése\n(Legalább 15 px távolságra, 0.6-os érték fölött);
+    :""coordinates"">
+}
+
+card #2e2e2e """threshold""" {
+    :""GFP""<
+    :Gauss simítás;
+    :Eredmény kivonása az eredetiből\n(különbség vizsgálata);
+    :Kivonunk 0.01-et;
+    :""GFP"">
+}
+
+card #2e2e2e """analyze_coordinates""" {
+    :""all_coordinates"", ""edges"", ""edges_angle"", ""GFP""<
+    :GFP binárissá alakítása\n//( > 0 ? )//;
+    while (Összes granulumra) is (van granulum középpont a listában)
+        :Középpont felrajzolása a lumenek közé;
+        note right: ""all_granules""
+        partition "Granulum feldolgozása" {
+            :Derivált abszolútértékek leméretezése\n(30x30px a középpont körül);
+            note left: ""edges""
+            :Deriváltak irányának leméretezése\n(30x30px a középpont körül);
+            note left: ""edges_angle""
+            partition "Projekció feldolgozása" {
+                :Várt irányok felrajzolása 30x30px területen
+                (Egy körlap, amin minden sugár olyan színes, amekkora a sugár szöge);
+                note right: minta szögek
+                :Abszolút különbség számítása a minta szögek és a derivált iránya között;
+                note right: szögkülönbség
+                :Szögkülönbség inverzének összeszorzása a magnitudóval;
+                note right: szorzat (valószínűség)
+                :Szorzat binárissá alakítása ISODATA küszöböléssel;
+                note right: maszk
+            }
+            :Elkülönülő maszk-részek felszámozása
+            (vizsgálás teljes kapcsolódásban);
+            :Leginkább a középpont felé eső rész kiválasztása;
+            :Konvex burok kiszámítása;
+            note right: lumen
+            :Lumen külső peremének elkülönítése;
+            :Külső peremből csak annak a területnek a figyelembe vétele,\nahol eredetileg is átfedésben volt a résszel;
+            :Külső perem megnövelése 3 pixellel;
+            note right: membrán
+            :Membrán és a GFP között átfedés keresése;
+            :Guo & Hall féle morfológiai elvékonyítás végrehajtása 1px vastagságig;
+            note right: gyűrű
+            :Membránon Guo & Hall féle elvékonyítás alkalmazása 1px vastagságig;
+            note right: hamis gyűrű
+        }
+        if (Van eredmény?) then (van)
+            if (Ismert a lumen?) then (lumen meghatározva)
+                :Lumen felrajzolása;
+                note right: ""all_granules""
+            endif
+            if (Ismert a membrán?) then (membrán meghatározva)
+                :Membrán felrajzolása a membrán területek közé;
+                note right: ""rings_searched""
+            endif
+            if (Ismert a hamis gyűrű?) then (hamis gyűrű meghatározva)
+                :Hamis gyűrű felrajzolása a membránok közé;
+                note right: ""rings_expected""
+            endif
+            if (Ismert a döntés?\n("jó" vagy "rossz")) then (döntés meghatározva)
+                switch (Mi a döntés?)
+                case (Jó granulum)
+                    :Koordináta felvétele a jó koordináták közé;
+                    note right: ""good_coordinates""
+                    :Lumen felrajzolása a jó lumenek közé;
+                    note right: ""good_granules""
+                    :Gyűrű felrajzolása a jó membránok közé;
+                    note right: ""rings_found""
+                case (Rossz granulum)
+                    :Koordináta felvétele a rossz koordináták közé;
+                    note right: ""bad_coordinates""
+                    :Lumen felrajzolása a rossz lumenek közé;
+                    note right: ""bad_granules""
+                    :Gyűrű felrajzolása a rossz membránok közé;
+                    note right: ""rings_too_small""
+                endswitch
+            endif
+        endif
+    endwhile (elfogytak)
+    :""rings_searched"", ""all_granules"", ""rings_expected"", ""rings_found"", ""rings_too_small"", ""good_coordinates"", ""good_granules"", ""bad_coordinates"", ""bad_granules"">
+}
+
+card #2e2e2e """count""" {
+    :""all_coordinates"", ""good_coordinates"", ""bad_coordinates""<
+    :Üres szöveg létrehozása;
+    note right: ""stat_text""
+    :Összes granulum megszámolása;
+    note left: ""all_coordinates""
+    note right: ""Count"" mező a ""stat_text"" végére fűzve
+    :Jó granulumok megszámolása;
+    note left: ""good_coordinates""
+    note right: ""Hit count"" mező a ""stat_text"" végére fűzve
+    :Rossz granulum megszámolása;
+    note left: ""bad_coordinates""
+    note right: ""Miss count"" mező a ""stat_text"" végére fűzve
+    :Jó és rössz granulumok arányának kiszámítása;
+    note left: ""good_coordinates"", ""bad_coordinates""
+    note right: ""Ratio"" mező a ""stat_text"" végére fűzve
+    :""stat_text"">
+}
+
+stop
+
+@enduml

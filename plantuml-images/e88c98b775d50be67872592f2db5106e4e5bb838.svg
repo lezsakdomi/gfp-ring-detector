@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" height="754px" preserveAspectRatio="none" style="width:518px;height:754px;background:#282C34;" version="1.1" viewBox="0 0 518 754" width="518px" zoomAndPan="magnify"><defs/><g><ellipse cx="257.5" cy="20" fill="#98C379" rx="10" ry="10" style="stroke:#222222;stroke-width:1.0;"/><rect fill="#424856" height="33.9688" rx="12.5" ry="12.5" style="stroke:#61AFEF;stroke-width:0.5;" width="119" x="198" y="94"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="99" x="208" y="115.1387">Mappaválasztás</text><polygon fill="#424856" points="182,147.9688,333,147.9688,345,159.9688,333,171.9688,182,171.9688,170,159.9688,182,147.9688" style="stroke:#61AFEF;stroke-width:0.5;"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="35" x="261.5" y="182.1792">létezik</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="151" x="182" y="163.7769">Van már dataset.toml fájl?</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="59" x="345" y="157.3745">még nincs</text><rect fill="#424856" height="33.9688" rx="12.5" ry="12.5" style="stroke:#61AFEF;stroke-width:0.5;" width="235" x="140" y="239.3711"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="215" x="150" y="260.5098">Új fájl létrehozása felugró-ablakkal</text><polygon fill="#424856" points="257.5,50,269.5,62,257.5,74,245.5,62,257.5,50" style="stroke:#61AFEF;stroke-width:0.5;"/><polygon fill="#424856" points="190.5,293.3398,324.5,293.3398,336.5,305.3398,324.5,317.3398,190.5,317.3398,178.5,305.3398,190.5,293.3398" style="stroke:#61AFEF;stroke-width:0.5;"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="25" x="261.5" y="327.5503">"Ok"</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="134" x="190.5" y="309.1479">dataset.toml elmentve?</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="58" x="336.5" y="302.7456">"Mégsem"</text><polygon fill="#424856" points="257.5,349.0503,269.5,361.0503,257.5,373.0503,245.5,361.0503,257.5,349.0503" style="stroke:#61AFEF;stroke-width:0.5;"/><rect fill="#424856" height="33.9688" rx="12.5" ry="12.5" style="stroke:#61AFEF;stroke-width:0.5;" width="156" x="179.5" y="393.0503"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="136" x="189.5" y="414.189">Böngésző megnyitása</text><rect fill="#424856" height="33.9688" rx="12.5" ry="12.5" style="stroke:#61AFEF;stroke-width:0.5;" width="130" x="192.5" y="447.019"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="110" x="202.5" y="468.1577">Szerver elindítása</text><rect fill="#ABB2BF" height="6" rx="2.5" ry="2.5" style="stroke:#ABB2BF;stroke-width:1.0;" width="495" x="11" y="500.9878"/><rect fill="#006400" height="47.9375" style="stroke:#61AFEF;stroke-width:0.5;" width="245" x="23" y="573.5034"/><line style="stroke:#61AFEF;stroke-width:0.5;" x1="28" x2="28" y1="573.5034" y2="621.4409"/><line style="stroke:#61AFEF;stroke-width:0.5;" x1="263" x2="263" y1="573.5034" y2="621.4409"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="225" x="33" y="594.6421">Szerver fut és elérhető böngészőből</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="34" x="33" y="608.6108">(Lásd</text><text fill="#ABB2BF" font-family="monospace" font-size="12" lengthAdjust="spacing" textLength="77" x="71" y="608.6108">server.puml</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="5" x="148" y="608.6108">)</text><polygon fill="#424856" points="332,526.9878,468,526.9878,480,538.9878,468,550.9878,332,550.9878,320,538.9878,332,526.9878" style="stroke:#61AFEF;stroke-width:0.5;"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="136" x="332" y="542.7959">fekete ablak nyitva van?</text><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="11" lengthAdjust="spacing" textLength="109" x="211" y="536.3936">bezártuk az ablakot</text><rect fill="#000000" height="33.9688" rx="12.5" ry="12.5" style="stroke:#61AFEF;stroke-width:0.5;" width="126" x="337" y="633.9878"/><text fill="#ABB2BF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, &quot;Noto Sans&quot;, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;, &quot;Noto Color Emoji&quot;" font-size="12" lengthAdjust="spacing" textLength="106" x="347" y="655.1265">Szerver bezárása</text><polygon fill="#424856" points="257.5,677.9565,269.5,689.9565,257.5,701.9565,245.5,689.9565,257.5,677.9565" style="stroke:#61AFEF;stroke-width:0.5;"/><ellipse cx="257.5" cy="732.9565" rx="11" ry="11" style="stroke:#222222;stroke-width:1.0;fill:none;"/><ellipse cx="257.5" cy="732.9565" fill="#222222" rx="6" ry="6" style="stroke:#111111;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="171.9688" y2="196.3711"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="130" y1="196.3711" y2="196.3711"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="130" x2="130" y1="196.3711" y2="361.0503"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="130" x2="245.5" y1="361.0503" y2="361.0503"/><polygon fill="#61AFEF" points="235.5,357.0503,245.5,361.0503,235.5,365.0503,239.5,361.0503" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="345" x2="357" y1="159.9688" y2="159.9688"/><polygon fill="#61AFEF" points="353,183.3711,357,193.3711,361,183.3711,357,187.3711" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="357" x2="357" y1="159.9688" y2="219.3711"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="357" x2="257.5" y1="219.3711" y2="219.3711"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="219.3711" y2="239.3711"/><polygon fill="#61AFEF" points="253.5,229.3711,257.5,239.3711,261.5,229.3711,257.5,233.3711" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="127.9688" y2="147.9688"/><polygon fill="#61AFEF" points="253.5,137.9688,257.5,147.9688,261.5,137.9688,257.5,141.9688" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="74" y2="94"/><polygon fill="#61AFEF" points="253.5,84,257.5,94,261.5,84,257.5,88" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="336.5" x2="387" y1="305.3398" y2="305.3398"/><polygon fill="#61AFEF" points="383,197.3711,387,187.3711,391,197.3711,387,193.3711" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="387" x2="387" y1="62" y2="305.3398"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="387" x2="269.5" y1="62" y2="62"/><polygon fill="#61AFEF" points="279.5,58,269.5,62,279.5,66,275.5,62" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="273.3398" y2="293.3398"/><polygon fill="#61AFEF" points="253.5,283.3398,257.5,293.3398,261.5,283.3398,257.5,287.3398" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="317.3398" y2="349.0503"/><polygon fill="#61AFEF" points="253.5,339.0503,257.5,349.0503,261.5,339.0503,257.5,343.0503" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="30" y2="50"/><polygon fill="#61AFEF" points="253.5,40,257.5,50,261.5,40,257.5,44" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="373.0503" y2="393.0503"/><polygon fill="#61AFEF" points="253.5,383.0503,257.5,393.0503,261.5,383.0503,257.5,387.0503" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="427.019" y2="447.019"/><polygon fill="#61AFEF" points="253.5,437.019,257.5,447.019,261.5,437.019,257.5,441.019" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="400" y1="550.9878" y2="586.9878"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="492" y1="586.9878" y2="586.9878"/><polygon fill="#61AFEF" points="488,572.9878,492,562.9878,496,572.9878,492,568.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="492" x2="492" y1="538.9878" y2="586.9878"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="492" x2="480" y1="538.9878" y2="538.9878"/><polygon fill="#61AFEF" points="490,534.9878,480,538.9878,490,542.9878,486,538.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="320" x2="308" y1="538.9878" y2="538.9878"/><polygon fill="#61AFEF" points="304,558.9878,308,568.9878,312,558.9878,308,562.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="308" x2="308" y1="538.9878" y2="598.9878"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="308" x2="400" y1="598.9878" y2="598.9878"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="400" y1="598.9878" y2="633.9878"/><polygon fill="#61AFEF" points="396,623.9878,400,633.9878,404,623.9878,400,627.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="145.5" x2="145.5" y1="506.9878" y2="573.5034"/><polygon fill="#61AFEF" points="141.5,563.5034,145.5,573.5034,149.5,563.5034,145.5,567.5034" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="400" y1="506.9878" y2="526.9878"/><polygon fill="#61AFEF" points="396,516.9878,400,526.9878,404,516.9878,400,520.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="145.5" x2="145.5" y1="621.4409" y2="689.9565"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="145.5" x2="245.5" y1="689.9565" y2="689.9565"/><polygon fill="#61AFEF" points="235.5,685.9565,245.5,689.9565,235.5,693.9565,239.5,689.9565" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="400" y1="667.9565" y2="689.9565"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="400" x2="269.5" y1="689.9565" y2="689.9565"/><polygon fill="#61AFEF" points="279.5,685.9565,269.5,689.9565,279.5,693.9565,275.5,689.9565" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="480.9878" y2="500.9878"/><polygon fill="#61AFEF" points="253.5,490.9878,257.5,500.9878,261.5,490.9878,257.5,494.9878" style="stroke:#61AFEF;stroke-width:1.0;"/><line style="stroke:#61AFEF;stroke-width:1.0;" x1="257.5" x2="257.5" y1="701.9565" y2="721.9565"/><polygon fill="#61AFEF" points="253.5,711.9565,257.5,721.9565,261.5,711.9565,257.5,715.9565" style="stroke:#61AFEF;stroke-width:1.0;"/><!--MD5=[12e4dd21a1d73b72e49838d32ecc4cd6]
+@startuml
+!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+
+start
+
+repeat
+    :Mappaválasztás;
+    if (Van már dataset.toml fájl?) then (létezik)
+        break
+    else (még nincs)
+    endif
+    :Új fájl létrehozása felugró-ablakkal;
+repeat while (dataset.toml elmentve?) is ("Mégsem") not ("Ok")
+
+:Böngésző megnyitása;
+:Szerver elindítása;
+
+fork
+    #darkGreen:Szerver fut és elérhető böngészőből
+    (Lásd ""server.puml"")|
+fork again
+    while (fekete ablak nyitva van?)
+    endwhile (bezártuk az ablakot)
+    #black:Szerver bezárása;
+end merge
+
+stop
+
+@enduml
+
+@startuml
+
+
+
+
+
+skinparam backgroundColor #282c34
+
+skinparam {
+  ActivityBackgroundColor        #424856
+  ActivityBarColor               #abb2bf
+  ActivityBorderColor            #61afef
+  ActivityDiamondBackgroundColor #424856
+  ActivityDiamondBorderColor     #61afef
+  ActivityEndColor               #e06c75
+  ActivityStartColor             #98c379
+
+  ActorBackgroundColor        #424856
+  ActorBorderColor            #61afef
+  ActorStereotypeFontColor    #abb2bf
+
+  AgentBackgroundColor       #424856
+  AgentBorderColor           #abb2bf
+
+  
+  ArrowColor #61afef
+
+  ArtifactBackgroundColor     #424856
+  ArtifactBorderColor         #abb2bf
+
+  BackgroundColor #282c34
+  
+
+  BoundaryBackgroundColor     #424856
+  BoundaryBorderColor         #61afef
+  BoundaryStereotypeFontColor #abb2bf
+
+  
+  CaptionFontColor #abb2bf
+
+  CardBackgroundColor     #424856
+  CardBorderColor         #abb2bf
+  
+  CircledCharacterFontColor #282c34
+
+
+  ClassBackgroundColor   #424856
+  ClassBorderColor       #abb2bf
+  
+
+
+  CloudBorderColor     #abb2bf
+  
+  CollectionsBackgroundColor #424856
+  CollectionsBorderColor     #61afef
+
+  
+  ComponentBackgroundColor       #424856
+  ComponentBorderColor           #61afef
+
+  
+
+  ControlBackgroundColor #424856
+  ControlBorderColor     #61afef
+  ControlFontColor       #abb2bf
+  ControlStereotypeFontColor #abb2bf
+
+  DatabaseBorderColor           #abb2bf
+
+  DefaultFontColor #abb2bf
+  DefaultFontName -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
+
+
+  
+
+
+  
+
+
+  EntityBackgroundColor #424856
+  EntityBorderColor     #61afef
+  
+
+  FileBackgroundColor #424856
+  FileBorderColor     #abb2bf
+
+
+ 
+  FolderBorderColor       #abb2bf
+  
+
+  FrameBorderColor           #abb2bf
+
+
+  InterfaceBackgroundColor       #424856
+  InterfaceBorderColor           #61afef
+
+  LegendBackgroundColor   #424856
+  LegendBorderColor       #abb2bf
+
+  
+  NodeBorderColor           #abb2bf
+  
+
+  NoteBackgroundColor   #e5c07b
+  NoteBorderColor       #282c34
+  NoteFontColor         #282c34
+  
+  ObjectBackgroundColor       #424856
+  ObjectBorderColor           #61afef
+  
+  PackageBorderColor           #abb2bf
+
+  
+  ParticipantBackgroundColor #424856
+  ParticipantBorderColor     #61afef
+  
+  PartitionBackgroundColor transparent
+  PartitionBorderColor     #abb2bf
+  
+  
+  QueueBackgroundColor       #424856
+  QueueBorderColor           #61afef
+  
+  
+  RectangleBorderColor           #abb2bf
+
+
+
+  
+  SequenceBoxBackgroundColor #424856
+  SequenceBoxBorderColor     #61afef
+
+
+  SequenceDividerBackgroundColor   #424856
+  SequenceDividerBorderColor       #abb2bf
+  
+  SequenceGroupBackgroundColor       #424856
+  SequenceGroupBorderColor           #abb2bf
+
+  SequenceLifeLineBackgroundColor   transparent
+  SequenceLifeLineBorderColor       #61afef
+
+  SequenceNewpageSeparatorColor  #abb2bf
+  
+  
+  SequenceReferenceBackgroundColor        transparent
+  SequenceReferenceBorderColor            #abb2bf
+  SequenceReferenceHeaderBackgroundColor #424856
+
+  
+  Shadowing false
+
+  StackBackgroundColor       #424856
+  StackBorderColor           #61afef
+
+  
+  StateBackgroundColor    #424856
+  StateBorderColor        #61afef
+  StateEndColor           #e06c75
+  StateStartColor         #98c379
+
+  StereotypeABackgroundColor   #61afef
+  StereotypeABorderColor       #61afef
+  StereotypeCBackgroundColor   #98c379
+  StereotypeCBorderColor       #98c379
+  StereotypeEBackgroundColor   #e5c07b
+  StereotypeEBorderColor       #e5c07b
+  StereotypeIBackgroundColor   #c678dd
+  StereotypeIBorderColor       #c678dd
+  
+  StorageBackgroundColor #424856
+  StorageBorderColor     #abb2bf
+  
+  
+  SwimlaneBorderColor            #abb2bf
+
+
+  UsecaseBackgroundColor       #424856
+  UsecaseBorderColor           #61afef
+  
+}
+
+
+start
+
+repeat
+    :Mappaválasztás;
+    if (Van már dataset.toml fájl?) then (létezik)
+        break
+    else (még nincs)
+    endif
+    :Új fájl létrehozása felugró-ablakkal;
+repeat while (dataset.toml elmentve?) is ("Mégsem") not ("Ok")
+
+:Böngésző megnyitása;
+:Szerver elindítása;
+
+fork
+    #darkGreen:Szerver fut és elérhető böngészőből
+    (Lásd ""server.puml"")|
+fork again
+    while (fekete ablak nyitva van?)
+    endwhile (bezártuk az ablakot)
+    #black:Szerver bezárása;
+end merge
+
+stop
+
+@enduml
+
+PlantUML version 1.2022.4(Sat Apr 09 13:29:17 UTC 2022)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: en
+Country: null
+--></g></svg>

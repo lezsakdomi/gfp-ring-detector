@@ -1,0 +1,29 @@
+@startuml
+!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+
+start
+
+repeat
+    :Mappaválasztás;
+    if (Van már dataset.toml fájl?) then (létezik)
+        break
+    else (még nincs)
+    endif
+    :Új fájl létrehozása felugró-ablakkal;
+repeat while (dataset.toml elmentve?) is ("Mégsem") not ("Ok")
+
+:Böngésző megnyitása;
+:Szerver elindítása;
+
+fork
+    #darkGreen:Szerver fut és elérhető böngészőből
+    (Lásd ""server.puml"")|
+fork again
+    while (fekete ablak nyitva van?)
+    endwhile (bezártuk az ablakot)
+    #black:Szerver bezárása;
+end merge
+
+stop
+
+@enduml

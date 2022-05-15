@@ -1,0 +1,61 @@
+@startuml
+!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+
+!pragma useVerticalIf on
+
+start
+
+'switch (Mi a kapott parancs?)
+'case (Open in editor)
+if (Melyik gomb?) then (Open in editor)
+    if (Forráskódból futtatjuk a programot?) then (Igen, letöltöttük\na forráskódot)
+        :Programkód megnyitása PyCharm-ban;
+    else (Windows,\n.exe fájlból)
+        #darkRed:hiba a konzolon;
+    endif
+'case (Open in viewer)
+elseif (Melyik gomb?) then (Open in viewer)
+    :Fázis beolvasása<
+    :Fázis kikeresése;
+    if (Fázis lefutott?) then (nem)
+        label view5D_error_sp1
+        label view5D_error_sp2
+        label view5D_error
+        #darkRed:hiba a konzolon;
+    else
+        if (NanoImagingPack bele van fordítve a programba?) then (nem)
+            label view5D_error_sp3
+            goto view5D_error
+        else
+            label view5D_error_sp4
+            :ImageJ 5D Viewer megnyitása;
+        endif
+    endif
+'case (Open in 5D viewer)
+elseif (Melyik gomb?) then (Open in 5D viewer)
+    if (Interaktívan indítottuk?) then
+        if (""extract_coordinates"" fázis lefutott?) then (nem)
+            label view5D_error_sp1
+            label view5D_error_sp2
+            label view5D_error
+            #darkRed:hiba a konzolon;
+        else
+            if (NanoImagingPack bele van fordítve a programba?) then (nem)
+                label view5D_error_sp3
+                goto view5D_error
+            else
+                label view5D_error_sp4
+                :ImageJ 5D Viewer megnyitása;
+            endif
+        endif
+    else (nem)
+        #darkRed:hiba a konzolon;
+    endif
+'endswitch
+else
+    #darkRed:hiba a konzolon;
+endif
+
+stop
+
+@enduml
