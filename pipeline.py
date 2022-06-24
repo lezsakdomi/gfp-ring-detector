@@ -60,49 +60,14 @@ class RingDetector(Pipeline):
 
             return DsRed, GFP, DAPI
 
-        @self.add_step
-        @Step.of(['DsRed', 'GFP'])
-        def clean(DsRed, GFP):
-            from skimage.filters import gaussian
-            from skimage.filters.rank import minimum
-            from skimage.morphology import disk
-            from skimage.util import img_as_ubyte
-            from skimage.exposure import adjust_gamma
+        min_distance = 7
 
-            DsRed = gaussian(DsRed, 1)
-            GFP = gaussian(GFP, 1)
-            DsRed[minimum(img_as_ubyte(DsRed), disk(30)) > 80] = 0
-            GFP[minimum(img_as_ubyte(GFP), disk(30)) > 80] = 0
-
-            DsRed = adjust_gamma(DsRed, 5)
-            GFP = adjust_gamma(GFP, 5)
-
-            return DsRed, GFP
-
-        @self.add_step
-        @Step.of(['d_h', 'd_v', 'd'],
-                 description="Edge detection using Sobel's algorithm")
-        def edge_detect(DsRed):
-            from skimage.filters import sobel_h, sobel_v, sobel
-            from skimage.color import hsv2rgb
-
-            h, v, grayscale = sobel_h(DsRed), sobel_v(DsRed), sobel(DsRed)
-            return h, v, grayscale
-
-        @self.add_step
-        @Step.of(['dd_h', 'dd_v', 'dd'])
-        def edge_second_derivative(d):
-            from skimage.filters import sobel_h, sobel_v, sobel
-
-            h, v, grayscale = sobel_h(d), sobel_v(d), sobel(d)
-            return h, v, grayscale
-        
         @self.add_step
         @Step.of('all_coordinates')
         def find_granule_centers(DsRed):
             from skimage.feature import peak_local_max
-            coordinates = peak_local_max(DsRed, min_distance=15,
-                                         threshold_abs=0.3)
+            coordinates = peak_local_max(DsRed, min_distance=min_distance,
+                                         threshold_abs=50)
             return list(coordinates)
 
         @self.add_step
@@ -111,6 +76,18 @@ class RingDetector(Pipeline):
             stat_text = []
             stat_text.append(f"Count: {len(all_coordinates)}\n")
             return stat_text
+
+        @self.add_step
+        @Step.of('all_coordinates')
+        def visualize_coordinates(DsRed, all_coordinates):
+            from skimage.draw import disk
+
+            img = np.zeros_like(DsRed)
+            for x, y in all_coordinates:
+                xx, yy = disk((x, y), min_distance)
+                img[xx, yy] = 1
+
+            return img
 
         self.seal_steps()
 
@@ -152,7 +129,7 @@ class RingDetector(Pipeline):
                     img = data
                 if isinstance(data, list):
                     for (x, y) in data:
-                        img[x-marker_size:x+marker_size, y-marker_size:y+marker_size] = 1
+                        img[x - marker_size:x + marker_size, y - marker_size:y + marker_size] = 1
                     markers.append((data, None))
                 return [img]
 
@@ -211,6 +188,7 @@ def run_application(fname_template, folder=None, interactive=False):
         # In non-interactive mode saving all output to the folder given by CLI argument
         open(folder + '/stats.txt', 'w').writelines(stat_text)
 
+
 def main(argv, stderr):
     fname_template = "GlueRab7_ctrl_-2h-0021.tif_Files/GlueRab7_ctrl_-2h-0021_c{}.tif"
     # fname_template = "képek/GF-0h-2022.2.10/GF_0h-0009.tif_Files/GF_0h-0009_c{}.tif"
@@ -231,4 +209,5 @@ def main(argv, stderr):
 
 if __name__ == '__main__':
     import sys
+
     main(sys.argv, sys.stderr)
