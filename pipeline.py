@@ -60,14 +60,28 @@ class RingDetector(Pipeline):
 
             return DsRed, GFP, DAPI
 
+        @self.add_step
+        @Step.of(['DsRed', 'GFP', 'mask'])
+        def clean(DsRed, GFP, DAPI):
+            from skimage.filters import gaussian
+            DAPI = gaussian(DAPI, 5)
+            DsRed = gaussian(DsRed)
+            GFP = gaussian(DsRed)
+            mask = np.ones_like(DAPI, dtype=np.bool)
+            mask[DAPI > 0.2] = 0
+            DsRed[~mask] = 0
+            GFP[~mask] = 0
+            return DsRed, GFP, DAPI
+
         min_distance = 7
 
         @self.add_step
         @Step.of('all_coordinates')
         def find_granule_centers(DsRed):
+            from skimage.feature import blob_doh
             from skimage.feature import peak_local_max
             coordinates = peak_local_max(DsRed, min_distance=min_distance,
-                                         threshold_abs=50)
+                                         threshold_abs=0.3)
             return list(coordinates)
 
         @self.add_step
