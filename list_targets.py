@@ -14,15 +14,21 @@ class TargetFormatError(Exception):
 
 
 class Target:
-    def __init__(self, path, files):
+    def __init__(self, path, name=None):
         self.path = path
-        folder_re_match = folder_re.match(os.path.basename(path))
-        if folder_re_match is None:
-            raise TargetFormatError("Folder name is bad")
-        self.name = folder_re_match.group('name')
-        if os.path.isfile(os.path.join(self.path, 'stats.txt')):
+        if name is not None:
+            self.name = name
+        else:
+            folder_re_match = folder_re.match(os.path.basename(path))
+            if folder_re_match is None:
+                raise TargetFormatError("Folder name is bad")
+            self.name = folder_re_match.group('name')
+        for c in range(3):
+            if not os.path.exists(self.fname(c)):
+                raise TargetFormatError(f"Image file for channel {c} not found")
+        if os.path.isfile(self.stats_path):
             self.stats = {}
-            with open(os.path.join(self.path, 'stats.txt')) as f:
+            with open(self.stats_path) as f:
                 for line in f.readlines():
                     stat_line_re_match = stat_line_re.match(line)
                     if stat_line_re_match is None:
@@ -38,13 +44,19 @@ class Target:
         return f"Image {self.name} ({self.path})"
 
     @property
+    def stats_path(self):
+        return os.path.join(self.path, 'stats.txt')
+
+    @property
     def fname_template(self):
         return os.path.join(self.path, f"{self.name}_c{'{}'}.tif")
 
+    def fname(self, c):
+        return self.fname_template.format(c)
+
     def chread(self, c):
         from skimage.io import imread
-        fname = os.path.join(self.path, f"{self.name}_c{c}.tif")
-        img = imread(fname)
+        img = imread(self.fname(c))
         return img
 
 
@@ -54,7 +66,7 @@ def walk(dataset=None):
 
     for path, dirs, files in os.walk(dataset):
         try:
-            yield Target(path, files)
+            yield Target(path)
         except TargetFormatError:
             pass
 
