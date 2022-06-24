@@ -60,6 +60,23 @@ class Target:
         return img
 
 
+class SliceTarget(Target):
+    def __init__(self, path, z=0):
+        self.z = z
+        super().__init__(path)
+
+    def __str__(self):
+        return f"Image {self.name}#{self.z} ({self.path}, z={self.z})"
+
+    @property
+    def stats_path(self):
+        return os.path.join(self.path, f'stats_z{self.z}.txt')
+
+    @property
+    def fname_template(self):
+        return os.path.join(self.path, f"{self.name}_z{self.z}c{'{}'}.tif")
+
+
 def walk(dataset=None):
     if dataset is None:
         dataset = default_dataset
@@ -68,7 +85,13 @@ def walk(dataset=None):
         try:
             yield Target(path)
         except TargetFormatError:
-            pass
+            i = 0
+            while True:
+                try:
+                    yield SliceTarget(path, i)
+                    i += 1
+                except TargetFormatError:
+                    break
 
 
 if __name__ == '__main__':

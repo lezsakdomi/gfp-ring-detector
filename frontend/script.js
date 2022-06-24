@@ -358,7 +358,7 @@ function listTargets(url, ul) {
         })
         const summary = details.appendChild(document.createElement('summary'));
         const a = summary.appendChild(document.createElement('a'));
-        a.innerText = o.path;
+        a.innerText = o.title;
         a.href = `#analyze#${encodeURIComponent(o.fnameTemplate)}`;
         a.addEventListener('click', event => {
             event.preventDefault();

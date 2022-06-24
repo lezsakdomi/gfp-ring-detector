@@ -104,6 +104,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 'fnameTemplate': image.fname_template,
                 'name': image.name,
                 'path': image.path,
+                'title': str(image),
                 'stats': image.stats
             })
             await ws.send(json)
