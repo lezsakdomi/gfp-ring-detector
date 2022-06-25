@@ -78,9 +78,12 @@ class RingDetector(Pipeline):
             from skimage.draw import disk
 
             img = np.zeros_like(DsRed)
-            for x, y in all_coordinates:
-                xx, yy = disk((x, y), min_distance)
-                img[xx, yy] = 1
+            for x, y, r in all_coordinates:
+                xx, yy = disk((x, y), r)
+                try:
+                    img[xx, yy] = 1
+                except IndexError:
+                    img[x, y] = 1
 
             return img
 
