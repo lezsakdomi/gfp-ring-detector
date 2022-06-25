@@ -45,13 +45,14 @@ class RingDetector(Pipeline):
         def clean(DsRed, GFP, DAPI):
             from skimage.filters import gaussian
             DAPI = gaussian(DAPI, 5)
-            DsRed = gaussian(DsRed)
-            GFP = gaussian(DsRed)
+            DsRed_blurred = gaussian(DsRed)
+            GFP_blurred = gaussian(GFP)
             mask = np.ones_like(DAPI, dtype=np.bool)
             mask[DAPI > 0.2] = 0
+            mask[DsRed_blurred < 0.2] = 0
             DsRed[~mask] = 0
             GFP[~mask] = 0
-            return DsRed, GFP, DAPI
+            return DsRed, GFP, mask
 
         min_distance = 7
 
