@@ -52,6 +52,10 @@ async def handle_connection(ws: WebSocketServerProtocol):
 
             def to_info(name, data):
                 if isinstance(data, np.ndarray):
+                    if data.dtype=='bool':
+                        img = np.zeros_like(data, dtype=float)
+                        img[data] = 1
+                        data = img
                     min = np.min(data)
                     max = np.max(data)
                     return f"+ IMAGE {name} {to_data_url((data-min)/(max-min))}#{min}..{max}"
