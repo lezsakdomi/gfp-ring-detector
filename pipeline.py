@@ -59,11 +59,9 @@ class RingDetector(Pipeline):
         @self.add_step
         @Step.of('all_coordinates')
         def find_granule_centers(DsRed):
-            from skimage.feature import blob_doh
-            from skimage.feature import peak_local_max
-            coordinates = peak_local_max(DsRed, min_distance=min_distance,
-                                         threshold_abs=0.3)
-            return list(coordinates)
+            from skimage.feature import blob_log as blob
+            coordinates = blob(DsRed, min_sigma=7, max_sigma=20, threshold=0.001, overlap=.7)
+            return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
 
         @self.add_step
         @Step.of('stat_text')
