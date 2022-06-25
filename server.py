@@ -8,6 +8,8 @@ import numpy as np
 import websockets
 import asyncio
 from websockets import WebSocketServerProtocol
+
+from list_targets import CustomTarget
 from pipeline import RingDetector
 from threading import Thread
 from urllib.parse import urlparse, unquote
@@ -74,7 +76,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
             # needed if receiving messages
             asyncio.run_coroutine_threadsafe(send_msgs(), mainloop)
 
-        ring_detector = RingDetector(fname_template, interactive=True)
+        ring_detector = RingDetector(CustomTarget(fname_template), interactive=True)
         thread = Thread(target=ring_detector.run, kwargs={'hook': cb})
         mainloop = asyncio.get_running_loop()
 

@@ -39,6 +39,14 @@ class Target:
                     self.stats[k] = v
         else:
             self.stats = None
+        self.dataset = self.path
+        while True:
+            if os.path.exists(os.path.join(self.dataset, 'dataset.toml')):
+                break
+            elif os.path.dirname(self.dataset) == self.dataset:  # already in root
+                raise TargetFormatError("No dataset.toml")
+            else:
+                self.dataset = os.path.dirname(self.dataset)
 
     def __str__(self):
         return f"Image {self.name} ({self.path})"
@@ -75,6 +83,19 @@ class SliceTarget(Target):
     @property
     def fname_template(self):
         return os.path.join(self.path, f"{self.name}_z{self.z}c{'{}'}.tif")
+
+
+class CustomTarget(Target):
+    def __init__(self, fname_template=None, folder=None):
+        self._fname_template = fname_template
+        super().__init__(os.path.dirname(fname_template) if folder is None else folder)
+
+    @property
+    def fname_template(self):
+        if self._fname_template is not None:
+            return self._fname_template
+        else:
+            return super().fname_template
 
 
 def walk(dataset=None):
