@@ -1,21 +1,8 @@
+from list_targets import Target, CustomTarget
 from pipeline_lib import Step, Pipeline
 import numpy as np
 import math
 from copy import deepcopy
-
-
-# helper function for reading a specified channel as numpy array (image)
-def chreader(fname_template: str):
-    def chread(chnum):
-        from skimage.io import imread
-        fname = fname_template.format(chnum)
-        try:
-            img = imread(fname)
-            return img
-        except FileNotFoundError:
-            return None
-
-    return chread
 
 
 class RingDetector(Pipeline):
@@ -35,28 +22,21 @@ class RingDetector(Pipeline):
                 images5.append([img])
             self._img5.append(images5)
 
-    def __init__(self, fname_template=None, chread=None, interactive=False):
+    def __init__(self, target: Target, interactive=False):
         super().__init__()
         self.seal_steps()
         self._img5 = []
         self._interactive = interactive
-
-        if chread is None:
-            chread = chreader(fname_template)
-
-        if chread is None:
-            raise RuntimeError("Either supply chread of fname_template")
 
         @self.add_step
         @Step.of(['DsRed', 'GFP', 'DAPI'])
         def load():
             from toml import load
             from os import path
-            from list_targets import default_dataset
-            dataset_options = load(path.join(default_dataset, 'dataset.toml'))
-            DsRed = chread(dataset_options['channels']['DsRed'])
-            GFP = chread(dataset_options['channels']['GFP'])
-            DAPI = chread(dataset_options['channels']['DAPI'])
+            dataset_options = load(path.join(target.dataset, 'dataset.toml'))
+            DsRed = target.chread(dataset_options['channels']['DsRed'])
+            GFP = target.chread(dataset_options['channels']['GFP'])
+            DAPI = target.chread(dataset_options['channels']['DAPI'])
 
             return DsRed, GFP, DAPI
 
@@ -218,7 +198,7 @@ def main(argv, stderr):
         print(f"Usage: {argv[0]} input_template [output_folder | \"\"]", file=stderr)
         print("For non-interactive usage please supply both arguments", file=stderr)
 
-    run_application(fname_template, folder or None, interactive)
+    run_application(CustomTarget(fname_template, folder), interactive=interactive)
 
 
 if __name__ == '__main__':
