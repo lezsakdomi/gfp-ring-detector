@@ -283,6 +283,17 @@ function analyze(url, ul) {
         li.appendChild(span);
         ul.appendChild(li);
 
+        async function retryConnection() {
+            try {
+                await fetch('/');
+                location.reload();
+            } catch (e) {
+                setTimeout(retryConnection, 200);
+            }
+        }
+
+        retryConnection();
+
         for (const button of ul.getElementsByTagName('button')) {
             button.disabled = true;
         }
