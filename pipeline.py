@@ -121,19 +121,22 @@ class RingDetector(Pipeline):
             return stat_text
 
         @self.add_step
-        @Step.of('all_coordinates')
-        def visualize_coordinates(DsRed, all_coordinates):
-            from skimage.draw import disk
+        @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
+                 of=['all', 'positive', 'neutral', 'negative'])
+        def visualize_coordinates(sample, *args):
+            def visualize_list(l):
+                from skimage.draw import disk
+                img = np.zeros_like(sample)
+                for x, y, r in l:
+                    xx, yy = disk((x, y), r)
+                    try:
+                        img[xx, yy] = 1
+                    except IndexError:
+                        img[x, y] = 1
 
-            img = np.zeros_like(DsRed)
-            for x, y, r in all_coordinates:
-                xx, yy = disk((x, y), r)
-                try:
-                    img[xx, yy] = 1
-                except IndexError:
-                    img[x, y] = 1
+                return img
 
-            return img
+            return list(map(visualize_list, args))
 
         self.seal_steps()
 
