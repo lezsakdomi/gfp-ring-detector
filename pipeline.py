@@ -22,15 +22,20 @@ class RingDetector(Pipeline):
                 images5.append([img])
             self._img5.append(images5)
 
+    @property
+    def initial_state(self):
+        return {'target': self.target}
+
     def __init__(self, target: Target, interactive=False):
         super().__init__()
         self.seal_steps()
         self._img5 = []
         self._interactive = interactive
+        self.target = target
 
         @self.add_step
         @Step.of(['DsRed', 'GFP', 'DAPI'])
-        def load():
+        def load(target):
             from toml import load
             from os import path
             dataset_options = load(path.join(target.dataset, 'dataset.toml'))

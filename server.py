@@ -63,7 +63,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
                     joined = '\n'.join(map(lambda d: str(d).strip(), data))
                     return f"+ LIST {name} {joined}"
                 else:
-                    return f"+ UNKNOWN {name} {repr(data)}"
+                    return f"+ UNKNOWN {name} {str(data)}"
 
             if not finished:
                 msgq.put(f"> Step#{step_index} ({step.name})" + (", " + step.details if step.details else ""))
