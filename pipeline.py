@@ -55,6 +55,8 @@ class RingDetector(Pipeline):
             mask = np.ones_like(DAPI, dtype=np.bool)
             mask[DAPI > 0.2] = 0
             mask[DsRed_blurred < 0.2] = 0
+            DsRed = gaussian(DsRed)
+            GFP = gaussian(GFP)
             DsRed[~mask] = 0
             GFP[~mask] = 0
             return DsRed, GFP, mask
