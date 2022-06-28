@@ -74,14 +74,48 @@ class RingDetector(Pipeline):
         @Step.of('all_coordinates')
         def find_granule_centers(sum):
             from skimage.feature import blob_dog as blob
-            coordinates = blob(DsRed, min_sigma=5, max_sigma=15, threshold=0.001)
+            coordinates = blob(sum, min_sigma=7, max_sigma=10, threshold=0.01, overlap=1)
             return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
+
+        @self.add_step(of=['positive_coordinates', 'neutral_coordinates', 'negative_coordinates'])
+        def analyze_coordinates(all_coordinates, diff, GFP, mask):
+            from skimage.draw import disk
+
+            neutral = []
+            gfp_positive = []
+            gfp_negative = []
+            for coordinates in all_coordinates:
+                x, y, r = coordinates
+                granule_mask = np.zeros_like(diff, dtype=bool)
+                try:
+                    xx, yy = disk((x, y), r)
+                    granule_mask[xx, yy] = True
+                    granule_mask = mask * granule_mask
+                    if np.mean(GFP, where=granule_mask) < 0.25:
+                        gfp_negative.append(coordinates)
+                    # elif np.mean(diff, where=granule_mask) > 0.2:
+                    #     gfp_positive.append(coordinates)
+                    else:
+                        neutral.append(coordinates)
+                except IndexError:
+                    pass
+            return gfp_positive, neutral, gfp_negative
 
         @self.add_step
         @Step.of('stat_text')
-        def count(all_coordinates):
+        def count(all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
             stat_text = []
-            stat_text.append(f"Count: {len(all_coordinates)}\n")
+            all = len(all_coordinates)
+            neutral = len(neutral_coordinates)
+            negative = len(negative_coordinates)
+            positive = len(positive_coordinates)
+
+            stat_text.append(f"Count: {all}\n")
+            stat_text.append(f"GFP positive: {neutral}\n")
+            stat_text.append(f"GFP negative: {negative}\n")
+            stat_text.append(f"Invalid: {positive}\n")
+            stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
+            stat_text.append(f"GFP negative ratio: {negative / (neutral + negative):.2%}\n")
             return stat_text
 
         @self.add_step
