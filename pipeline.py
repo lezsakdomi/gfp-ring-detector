@@ -59,11 +59,20 @@ class RingDetector(Pipeline):
             GFP[~mask] = 0
             return DsRed, GFP, mask
 
+        @self.add_step(of=['diff', 'diff_abs'])
+        def diff(DsRed, GFP):
+            diff = GFP - DsRed
+            return diff, np.abs(diff)
+
+        @self.add_step(of='sum')
+        def sum(DsRed, GFP):
+            return GFP / 2 + DsRed / 2
+
         min_distance = 7
 
         @self.add_step
         @Step.of('all_coordinates')
-        def find_granule_centers(DsRed):
+        def find_granule_centers(sum):
             from skimage.feature import blob_dog as blob
             coordinates = blob(DsRed, min_sigma=5, max_sigma=15, threshold=0.001)
             return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
