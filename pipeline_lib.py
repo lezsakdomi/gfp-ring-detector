@@ -209,7 +209,7 @@ class Pipeline:
         if self.state is not None:
             raise RuntimeError("State not clean")
 
-        self.state = {}
+        self.state = self.initial_state
 
         for step_index, step in enumerate(self.steps):
             self._hook(hook, step, pipeline=self, state=self.state, finished=False, completed=False, error=None, step_index=step_index)
@@ -223,3 +223,7 @@ class Pipeline:
             self._hook(hook, step, pipeline=self, state=self.state, finished=True, completed=True, error=None, step_index=step_index)
 
         return [self.state[out] for out in outputs]
+
+    @property
+    def initial_state(self):
+        return {}
