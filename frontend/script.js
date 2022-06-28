@@ -365,16 +365,16 @@ function listTargets(url, ul) {
         o.li = li;
         const details = li.appendChild(document.createElement('details'));
         details.addEventListener('defaultCrosshairsSet', event => {
-            url.fnameTemplate = o.fnameTemplate;
+            url.fnameTemplate = o.dump;
         })
         const summary = details.appendChild(document.createElement('summary'));
         const a = summary.appendChild(document.createElement('a'));
         a.innerText = o.title;
-        a.href = `#analyze#${encodeURIComponent(o.fnameTemplate)}`;
+        a.href = `#analyze#${encodeURIComponent(o.dump)}`;
         a.addEventListener('click', event => {
             event.preventDefault();
             url.page = 'analyze';
-            url.fnameTemplate = o.fnameTemplate;
+            url.fnameTemplate = o.dump;
             location.reload();
         })
         if (o.stats) {

@@ -1,7 +1,9 @@
 import base64
+import codecs
 import html
 import mimetypes
 import os
+import pickle
 import traceback
 
 import numpy as np
@@ -24,7 +26,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
     path = unquote(url.path)
 
     if path.startswith('/analyze/'):
-        fname_template = path[len('/analyze/'):]
+        target_str = path[len('/analyze/'):]
         msgq = Queue()
 
         async def send_msg(block=False, timeout=None):
@@ -80,7 +82,11 @@ async def handle_connection(ws: WebSocketServerProtocol):
             # needed if receiving messages
             asyncio.run_coroutine_threadsafe(send_msgs(), mainloop)
 
-        ring_detector = RingDetector(CustomTarget(fname_template), interactive=True)
+        if '{}' in target_str:
+            target = CustomTarget(target_str)
+        else:
+            target = pickle.loads(codecs.decode(target_str.encode(), "base64"))
+        ring_detector = RingDetector(target, interactive=True)
         thread = Thread(target=ring_detector.run, kwargs={'hook': cb})
         mainloop = asyncio.get_running_loop()
 
@@ -111,7 +117,8 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 'name': image.name,
                 'path': image.path,
                 'title': str(image),
-                'stats': image.stats
+                'stats': image.stats,
+                'dump': codecs.encode(pickle.dumps(image), 'base64').decode(),
             })
             await ws.send(json)
 
