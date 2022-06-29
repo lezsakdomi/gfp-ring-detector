@@ -28,117 +28,107 @@ class RingDetector(Pipeline):
 
     def __init__(self, target: Target, interactive=False):
         super().__init__()
-        self.seal_steps()
         self._img5 = []
         self._interactive = interactive
         self.target = target
 
-        @self.add_step
-        @Step.of(['DsRed', 'GFP', 'DAPI'])
-        def load(target):
-            from toml import load
-            from os import path
-            dataset_options = load(path.join(target.dataset, 'dataset.toml'))
-            DsRed = target.chread(dataset_options['channels']['DsRed'])
-            GFP = target.chread(dataset_options['channels']['GFP'])
-            DAPI = target.chread(dataset_options['channels']['DAPI'])
+    @Step.of(['DsRed', 'GFP', 'DAPI'])
+    def load(self, target):
+        from toml import load
+        from os import path
+        dataset_options = load(path.join(target.dataset, 'dataset.toml'))
+        DsRed = target.chread(dataset_options['channels']['DsRed'])
+        GFP = target.chread(dataset_options['channels']['GFP'])
+        DAPI = target.chread(dataset_options['channels']['DAPI'])
 
-            return DsRed, GFP, DAPI
+        return DsRed, GFP, DAPI
 
-        @self.add_step
-        @Step.of(['DsRed', 'GFP', 'mask'])
-        def clean(DsRed, GFP, DAPI):
-            from skimage.filters import gaussian
-            DAPI = gaussian(DAPI, 5)
-            DsRed_blurred = gaussian(DsRed)
-            GFP_blurred = gaussian(GFP)
-            mask = np.ones_like(DAPI, dtype=np.bool)
-            mask[DAPI > 0.2] = 0
-            mask[DsRed_blurred < 0.2] = 0
-            DsRed = gaussian(DsRed)
-            GFP = gaussian(GFP)
-            DsRed[~mask] = 0
-            GFP[~mask] = 0
-            return DsRed, GFP, mask
+    @Step.of(['DsRed', 'GFP', 'mask'])
+    def clean(self, DsRed, GFP, DAPI):
+        from skimage.filters import gaussian
+        DAPI = gaussian(DAPI, 5)
+        DsRed_blurred = gaussian(DsRed)
+        GFP_blurred = gaussian(GFP)
+        mask = np.ones_like(DAPI, dtype=np.bool)
+        mask[DAPI > 0.2] = 0
+        mask[DsRed_blurred < 0.2] = 0
+        DsRed = gaussian(DsRed)
+        GFP = gaussian(GFP)
+        DsRed[~mask] = 0
+        GFP[~mask] = 0
+        return DsRed, GFP, mask
 
-        @self.add_step(of=['diff', 'diff_abs'])
-        def diff(DsRed, GFP):
-            diff = GFP - DsRed
-            return diff, np.abs(diff)
+    @Step.of(['diff', 'diff_abs'])
+    def diff(self, DsRed, GFP):
+        diff = GFP - DsRed
+        return diff, np.abs(diff)
 
-        @self.add_step(of='sum')
-        def sum(DsRed, GFP):
-            return GFP / 2 + DsRed / 2
+    @Step.of('sum')
+    def sum(self, DsRed, GFP):
+        return GFP / 2 + DsRed / 2
 
-        min_distance = 7
+    @Step.of('all_coordinates')
+    def find_granule_centers(self, sum):
+        from skimage.feature import blob_dog as blob
+        coordinates = blob(sum, min_sigma=7, max_sigma=10, threshold=0.01, overlap=1)
+        return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
 
-        @self.add_step
-        @Step.of('all_coordinates')
-        def find_granule_centers(sum):
-            from skimage.feature import blob_dog as blob
-            coordinates = blob(sum, min_sigma=7, max_sigma=10, threshold=0.01, overlap=1)
-            return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
+    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates'])
+    def analyze_coordinates(self, all_coordinates, diff, GFP, mask):
+        from skimage.draw import disk
 
-        @self.add_step(of=['positive_coordinates', 'neutral_coordinates', 'negative_coordinates'])
-        def analyze_coordinates(all_coordinates, diff, GFP, mask):
+        neutral = []
+        gfp_positive = []
+        gfp_negative = []
+        for coordinates in all_coordinates:
+            x, y, r = coordinates
+            granule_mask = np.zeros_like(diff, dtype=bool)
+            try:
+                xx, yy = disk((x, y), r)
+                granule_mask[xx, yy] = True
+                granule_mask = mask * granule_mask
+                if np.mean(GFP, where=granule_mask) < 0.25:
+                    gfp_negative.append(coordinates)
+                # elif np.mean(diff, where=granule_mask) > 0.2:
+                #     gfp_positive.append(coordinates)
+                else:
+                    neutral.append(coordinates)
+            except IndexError:
+                pass
+        return gfp_positive, neutral, gfp_negative
+
+    @Step.of('stat_text')
+    def count(self, all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
+        stat_text = []
+        all = len(all_coordinates)
+        neutral = len(neutral_coordinates)
+        negative = len(negative_coordinates)
+        positive = len(positive_coordinates)
+
+        stat_text.append(f"Count: {all}\n")
+        stat_text.append(f"GFP positive: {neutral}\n")
+        stat_text.append(f"GFP negative: {negative}\n")
+        stat_text.append(f"Invalid: {positive}\n")
+        stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
+        stat_text.append(f"GFP negative ratio: {negative / (neutral + negative):.2%}\n")
+        return stat_text
+
+    @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
+             of=['all', 'positive', 'neutral', 'negative'])
+    def visualize_coordinates(self, sample, *args):
+        def visualize_list(l):
             from skimage.draw import disk
-
-            neutral = []
-            gfp_positive = []
-            gfp_negative = []
-            for coordinates in all_coordinates:
-                x, y, r = coordinates
-                granule_mask = np.zeros_like(diff, dtype=bool)
+            img = np.zeros_like(sample)
+            for x, y, r in l:
+                xx, yy = disk((x, y), r)
                 try:
-                    xx, yy = disk((x, y), r)
-                    granule_mask[xx, yy] = True
-                    granule_mask = mask * granule_mask
-                    if np.mean(GFP, where=granule_mask) < 0.25:
-                        gfp_negative.append(coordinates)
-                    # elif np.mean(diff, where=granule_mask) > 0.2:
-                    #     gfp_positive.append(coordinates)
-                    else:
-                        neutral.append(coordinates)
+                    img[xx, yy] = 1
                 except IndexError:
-                    pass
-            return gfp_positive, neutral, gfp_negative
+                    img[x, y] = 1
 
-        @self.add_step
-        @Step.of('stat_text')
-        def count(all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
-            stat_text = []
-            all = len(all_coordinates)
-            neutral = len(neutral_coordinates)
-            negative = len(negative_coordinates)
-            positive = len(positive_coordinates)
+            return img
 
-            stat_text.append(f"Count: {all}\n")
-            stat_text.append(f"GFP positive: {neutral}\n")
-            stat_text.append(f"GFP negative: {negative}\n")
-            stat_text.append(f"Invalid: {positive}\n")
-            stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
-            stat_text.append(f"GFP negative ratio: {negative / (neutral + negative):.2%}\n")
-            return stat_text
-
-        @self.add_step
-        @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
-                 of=['all', 'positive', 'neutral', 'negative'])
-        def visualize_coordinates(sample, *args):
-            def visualize_list(l):
-                from skimage.draw import disk
-                img = np.zeros_like(sample)
-                for x, y, r in l:
-                    xx, yy = disk((x, y), r)
-                    try:
-                        img[xx, yy] = 1
-                    except IndexError:
-                        img[x, y] = 1
-
-                return img
-
-            return list(map(visualize_list, args))
-
-        self.seal_steps()
+        return list(map(visualize_list, args))
 
     def _hook(self, hook, *args, **kwargs):
         if self._interactive:
