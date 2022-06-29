@@ -21,7 +21,7 @@ class Step:
     def __init__(self, func, of, on=None, name=None, description=None):
         self._func = func
         self._name = name or func.__name__
-        self._inputs = on or tuple(inspect.signature(func).parameters.keys())
+        self._inputs = on or tuple(inspect.signature(func).parameters.keys())[1:]
         self._outputs = of or inspect.signature(func).return_annotation
         # TODO check if arguments OK
         self._last_started = None
@@ -87,7 +87,7 @@ class Step:
         # TODO check if in right state
         self._last_input = [state[inp] for inp in self.inputs]
 
-    def _run(self):
+    def _run(self, other):
         # TODO check if in right state
         self._started.set()
         self._last_started = time.time()
@@ -95,7 +95,7 @@ class Step:
         started = time.process_time()
         try:
             try:
-                self._last_output = self._func(*self._last_input)
+                self._last_output = self._func(other, *self._last_input)
             except BaseException as e:
                 self._last_error = e
                 raise
@@ -123,18 +123,17 @@ class Step:
         else:
             raise RuntimeError(f"Step {self.name} returned of unexpected type: {type(self._last_output)}")
 
-    def run_on(self, state):
+    def run_on(self, state, other):
         self._clean()
         self._load(state)
-        self._run()
+        self._run(other)
         self._save(state)
 
 
 class Pipeline:
     def __init__(self):
         self.state = None
-        self.steps = []
-        self._sealed = False
+        self.steps = [val for val in type(self).__dict__.values() if isinstance(val, Step)]
 
     def add_step(self, step=None, *args, **kwargs):
         if step is None:
@@ -175,15 +174,10 @@ class Pipeline:
 
         raise IndexError(f'Step {step} was requested to be found {index + 1} more time')
 
-    def seal_steps(self):
-        self._sealed = True
-
     def clone(self):
         clone = Pipeline()
         for step in self.steps:
             clone.steps.append(step)
-        if self.sealed:
-            clone.seal_steps()
         return clone
 
     def _clean(self):
@@ -215,7 +209,7 @@ class Pipeline:
             self._hook(hook, step, pipeline=self, state=self.state, finished=False, completed=False, error=None, step_index=step_index)
 
             try:
-                step.run_on(self.state)
+                step.run_on(self.state, self)
             except Exception as e:
                 self._hook(hook, step, pipeline=self, state=self.state, finished=True, completed=False, error=e, step_index=step_index)
                 raise
