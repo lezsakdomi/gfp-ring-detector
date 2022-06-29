@@ -12,3 +12,4 @@ test-images/**/stats.*
 test-images/**/*.txt
 dist
 build
+GF_CO_0624/
