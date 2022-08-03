@@ -29,6 +29,13 @@ jobs:
         path: |
           dist
         retention-days: 3
+    - name: ZIP
+      run: 7z a windows ./dist/*
+    - name: Update release
+      uses: johnwbyrd/update-release@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        asset: ./windows.zip
 
   build-doc:
     runs-on: ubuntu-latest
@@ -59,6 +66,13 @@ jobs:
             doc/index.html
             doc/doc.html
             doc/plantuml-images/
+      - name: ZIP
+        run: tar -czf doc.tgz doc/**
+      - name: Update release
+        uses: johnwbyrd/update-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          asset: ./doc.tgz
 
   deploy-pages:
     permissions: write-all
@@ -68,10 +82,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: doc-html
-      - uses: actions/download-artifact@v3
-        with:
-          name: dist-windows
-          path: dist-windows
       - name: Setup repository 🔧
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
