@@ -35,7 +35,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get install -y pandoc python3-pip ruby jq default-jre
+          sudo apt-get install -y pandoc python3-pip ruby jq default-jre graphviz
           sudo pip install pandoc-plantuml-filter
           sudo gem install liquid-cli
           mkdir -p ~/.local/bin
@@ -84,7 +84,7 @@ jobs:
         run: |
           git lfs track dist-*/**/*
           git add .
-          git commit -m "🤖 Automated deployment from $GITHUB_REF_NAME at $GITHUB_REPOSITORY@$GITHUB_SHA"$'\n'$'\n'"Deployed by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/runs/$GITHUB_RUN_ID"
+          git commit -m "🤖 Automated deployment from $GITHUB_REF_NAME at $GITHUB_REPOSITORY@$GITHUB_SHA"$'\n'$'\n'"Deployed by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
       - name: Upload new site version 📤
         run: |
           git push --force origin gh-pages
