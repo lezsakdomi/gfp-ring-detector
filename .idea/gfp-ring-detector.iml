@@ -4,10 +4,12 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/dist" />
       <excludeFolder url="file://$MODULE_DIR$/build" />
+      <excludePattern pattern="elm-stuff" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (gfp-ring-detector)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="fuse.js" level="application" />
     <orderEntry type="library" name="fuse.min.js" level="application" />
+    <orderEntry type="library" name="fuse.js" level="application" />
   </component>
 </module>
