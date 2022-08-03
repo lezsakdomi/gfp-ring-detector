@@ -35,7 +35,7 @@ jobs:
       uses: johnwbyrd/update-release@v1.0.0
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        asset: ./windows.zip
+        files: ./windows.zip
 
   build-doc:
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
         uses: johnwbyrd/update-release@v1.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          asset: ./doc.tgz
+          files: ./doc.tgz
 
   deploy-pages:
     permissions: write-all
