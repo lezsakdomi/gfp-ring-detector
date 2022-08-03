@@ -122,6 +122,11 @@ async def handle_connection(ws: WebSocketServerProtocol):
             })
             await ws.send(json)
 
+    if path == '/reload':
+        async with websockets.connect("ws://localhost:8000/reload") as server:
+            async for message in server:
+                await ws.send(message)
+
     else:
         await ws.close(4001)
 
@@ -214,8 +219,27 @@ async def serve(host="0.0.0.0", port=8080):
                 return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
                        b'Server error'
 
-        return HTTPStatus.NOT_FOUND, [('Content-Type', "text/plain, charset=UTF-8")], \
-           b'The requested resource was not found on the server'
+        try:
+            with open("frontend/Main.html", 'rb') as f:
+                data = f.read()
+            response_headers = []
+            mime, encoding = mimetypes.guess_type("frontend/Main.html")
+
+            if mime is not None:
+                response_headers.append(('Content-Type', mime))
+            if encoding is not None:
+                response_headers.append(('Content-Encoding', encoding))
+
+            return HTTPStatus.OK, response_headers, data
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
+               b'Not permitted to open this location'
+        except Exception:
+            traceback.print_exc()
+            return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
+                b'Server error'
 
     async with websockets.serve(handle_connection, host, port, process_request=process_request):
         await asyncio.Future()

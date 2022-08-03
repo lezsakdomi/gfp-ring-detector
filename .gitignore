@@ -13,3 +13,4 @@ test-images/**/*.txt
 dist
 build
 GF_CO_0624/
+elm-stuff

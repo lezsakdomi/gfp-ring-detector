@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<head>
+    <base href="/">
+    <link rel="stylesheet" href="style.css">
+    <base href="/">
+    <script src="Main.js"></script>
+    <script src="reload/reload.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const app = Elm.Main.init({node: document.getElementById("elm")});
+                window.app = app
+
+                let ws;
+                app.ports.openWs && app.ports.openWs.subscribe((url) => {
+                    if (ws) {
+                        ws.onclose = undefined;
+                        ws.onmessage = undefined;
+                        ws.onerror = undefined;
+                        ws.onopen = undefined;
+                        ws.close(3000, "Different websocket requested");
+                    }
+                    setTimeout(() => {
+                        ws = new WebSocket(url);
+                        ws.onmessage = ({data}) => {
+                            try {
+                                console.log("Received WS message:", JSON.parse(data))
+                            } catch (e) {
+                                console.log("Received WS message:", data)
+                            }
+                            app.ports.wsMessage && app.ports.wsMessage.send(data);
+                        };
+                        ws.onclose = ({code, reason, wasClean}) => {
+                            app.ports.wsClosed && app.ports.wsClosed.send([code, reason, wasClean])
+                        };
+                    });
+                });
+                app.ports.closeWs && app.ports.closeWs.subscribe(() => {
+                    ws.close(1000);
+                });
+                app.ports.messageWs && app.ports.messageWs.subscribe((message) => {
+                    console.log("Sending ws message:", message)
+                    ws.send(message);
+                });
+                app.ports.showPrompt && app.ports.showPrompt.subscribe((message, _default) => {
+                    const result = prompt(message, _default);
+                    app.ports.promptResponse && app.ports.promptResponse.send(result === undefined ? null : result);
+                });
+                app.ports.initialized && app.ports.initialized.send(null)
+                document.body.addEventListener('mouseup', (event) => {
+                    app.ports.onmouseup && app.ports.onmouseup.send(event);
+                })
+            } catch (e) {
+                console.error("App init error:", e)
+                // display initialization errors (e.g. bad flags, infinite recursion)
+                const header = document.createElement("h1");
+                header.style.fontFamily = "monospace";
+                header.innerText = "Initialization Error";
+                const pre = document.getElementById("elm");
+                document.body.insertBefore(header, pre);
+                pre.innerText = e;
+                throw e;
+            }
+        })
+    </script>
+</head>
+<body>
+<pre id="elm"></pre>
+</body>
