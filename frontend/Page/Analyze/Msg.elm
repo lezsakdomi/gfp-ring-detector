@@ -1,15 +1,15 @@
 module Page.Analyze.Msg exposing (..)
 
+import Json.Decode as Decode
 import Page.Analyze.Model.Plane exposing (Plane)
 import Page.Analyze.Model.Selection as Selection
 import Page.Analyze.Model.Step as Step
 import Page.Analyze.Msg.Helpers as Helpers exposing (MouseEvent, MouseScrollEvent)
 import Page.Analyze.WsTypes exposing (..)
-import Parser exposing (DeadEnd)
 import Time
 
 type Msg
-   = WsMessage (Result (List DeadEnd) WsMessage)
+   = WsMessage (Result Decode.Error WsMessage)
    | OkWsMessage WsMessage Time.Posix
    | WsClosed WsCloseReason
    | MouseUp

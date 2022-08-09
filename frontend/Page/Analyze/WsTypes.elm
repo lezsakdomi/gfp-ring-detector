@@ -1,7 +1,6 @@
 module Page.Analyze.WsTypes exposing (..)
 
-import Parser exposing (..)
-import Set
+import Json.Decode exposing (..)
 
 type alias WsCloseReason =
     {code: Int, reason: String, wasClean: Bool}
@@ -17,111 +16,55 @@ type PlaneData
     | List (List String)
     | Unknown String
 
-messageParser : Parser WsMessage
+messageParser : Decoder WsMessage
 messageParser =
     let
-        planeName =
-            variable
-             { start = Char.isAlpha
-             , inner = (\c -> c /= ' ')
-             , reserved = Set.empty
-             }
+        byType t =
+            case t of
+                "started" -> stepStarted
+                "plane" -> plane
+                "error" -> error
+                "completed" -> stepCompleted
+                s -> fail <| "Unexpected event " ++ s
 
-        stepName =
-            variable
-               { start = Char.isAlpha
-               , inner = (\c -> Char.isAlphaNum c || c == ' ' || c == '-' || c == '_' )
-               , reserved = Set.empty
-               }
+        stepStarted =
+            map3 (\id name details -> StepStarted {id = id, name = name, details = details})
+                (field "id" int)
+                (field "name" string)
+                (maybe <| field "details" string)
+
+        stepCompleted =
+            map4 (\id name details duration -> StepCompleted {id = id, name = name, durationS = duration, details = details})
+                (field "id" int)
+                (field "name" string)
+                (maybe <| field "details" string)
+                (field "duration" float)
+
+        error =
+            map (\description -> Error {description = description})
+                (field "description" string)
+
+        plane =
+            let
+                planeDataByType t =
+                    case t of
+                        Just "image" -> map3 (\url min max -> Image {url = url, min = min, max = max})
+                            (field "url" string)
+                            (field "min" float)
+                            (field "max" float)
+
+                        Just "list" -> map List
+                            (field "elements" <| list string)
+
+                        Nothing -> map Unknown
+                            (field "data" string)
+
+                        Just s -> fail <| "Unexpected plane type " ++ s
+            in
+            map2 (\name data -> Plane {data = data, name = name})
+                (field "name" string)
+                (field "class" string |> maybe |> andThen planeDataByType)
+
     in
-    oneOf
-        [ succeed (\id name details -> StepStarted {id = id, name = name, details = details})
-            |. keyword ">"
-            |. spaces
-            |. keyword "Step"
-            |. symbol "#"
-            |= int
-            |. spaces
-            |. symbol "("
-            |= stepName
-            |. symbol ")"
-            |= oneOf
-                [ succeed Just
-                    |. symbol ", "
-                    |= getChompedString (chompWhile (always True))
-                , succeed Nothing
-                    |. end
-                ]
-            |. end
-        , succeed (\id name duration details -> StepCompleted {id = id, name = name, durationS = duration, details = details})
-            |. keyword "COMPLETED"
-            |. spaces
-            |. keyword "step"
-            |. symbol "#"
-            |= int
-            |. spaces
-            |. symbol "("
-            |= stepName
-            |. symbol "),"
-            |. spaces
-            |. keyword "took"
-            |. spaces
-            |= float
-            |. spaces
-            |. keyword "s"
-            |= oneOf
-                [ succeed Just
-                    |. symbol ", "
-                    |= getChompedString (chompWhile (always True))
-                , succeed Nothing
-                    |. end
-                ]
-            |. end
-        , succeed (\description -> Error {description = description})
-            |. keyword "ERROR"
-            |. spaces
-            |= getChompedString (chompWhile (always True))
-        , succeed (\(name, data) -> Plane {data = data, name = name})
-            |. keyword "+"
-            |. spaces
-            |= oneOf
-                [ succeed (\name url min max -> (name, Image {url = url, min = min, max = max}) )
-                    |. keyword "IMAGE"
-                    |. spaces
-                    |= planeName
-                    |. spaces
-                    |= getChompedString (
-                        symbol "data:image/"
-                            |. variable
-                                { start = Char.isLower
-                                , inner = Char.isLower
-                                , reserved = Set.empty
-                                }
-                            |. symbol ";base64,"
-                            |. let
-                                isBase64Char c =
-                                    Char.isAlphaNum c || c == '+' || c == '/' || c == '='
-                            in chompWhile isBase64Char
-                    )
-                    |. symbol "#"
-                    |= float
-                    |. chompWhile (\c -> c == '.')
-                    |= float
-                    |. end
-                , succeed (\name str -> (name, List <| String.split "\n" str))
-                    |. keyword "LIST"
-                    |. spaces
-                    |= planeName
-                    |= getChompedString (chompWhile (always True))
-                , succeed (\name str -> (name, Unknown str))
-                    |. keyword "UNKNOWN"
-                    |. spaces
-                    |= planeName
-                    |. spaces
-                    |= getChompedString (chompWhile (always True))
-                ]
-        ]
-    --case String.split " " string of
-    --    [] -> Nothing
-    --    ">" :: stepIdStr :: stepNameStr :: detailsStrArray ->
-    --        case
+    field "event" string
+        |> andThen byType

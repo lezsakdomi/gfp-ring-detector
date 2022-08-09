@@ -1,6 +1,7 @@
 module Page.Analyze.Communication exposing (..)
 
 import Constants
+import Json.Decode exposing (decodeString)
 import List.Extra as List
 import Page.Analyze.Model as Model exposing (Model)
 import Page.Analyze.Model.Cursor exposing (Cursor)
@@ -266,7 +267,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Ports.wsMessage (Msg.WsMessage << Parser.run WsTypes.messageParser)
+        [ Ports.wsMessage (Msg.WsMessage << decodeString WsTypes.messageParser)
         , Ports.wsClosed (\(code, reason, wasClean) -> Msg.WsClosed {code = code, reason = reason, wasClean = wasClean})
         , Ports.onmouseup (always Msg.MouseUp)
         ]

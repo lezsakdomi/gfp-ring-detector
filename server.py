@@ -31,6 +31,14 @@ async def handle_connection(ws: WebSocketServerProtocol):
 
         async def send_msg(block=False, timeout=None):
             msg = msgq.get(block, timeout)
+            try:
+                from json import dumps
+                msg = dumps(msg)
+            except Exception as e:
+                msg = dumps({
+                    'event': 'error',
+                    'description': f'Dump error: {e}\n{repr(msg)}',
+                })
             await ws.send(msg)
             msgq.task_done()
 
@@ -52,32 +60,54 @@ async def handle_connection(ws: WebSocketServerProtocol):
                 buf.getvalue()
                 return f"data:image/{fmt};base64,{base64.b64encode(buf.getvalue()).decode()}"
 
-            def to_info(name, data):
+            def to_info(data):
                 if isinstance(data, np.ndarray):
-                    if data.dtype=='bool':
+                    if data.dtype == 'bool':
                         img = np.zeros_like(data, dtype=float)
                         img[data] = 1
                         data = img
                     min = np.min(data)
                     max = np.max(data)
-                    return f"+ IMAGE {name} {to_data_url((data-min)/(max-min))}#{min}..{max}"
+                    return {
+                        'class': 'image',
+                        'url': to_data_url((data - min) / (max - min)),
+                        'min': float(min),
+                        'max': float(max),
+                    }
                 if isinstance(data, list):
-                    joined = '\n'.join(map(lambda d: str(d).strip(), data))
-                    return f"+ LIST {name} {joined}"
+                    return {
+                        'class': 'list',
+                        'elements': [str(d).strip() for d in data]
+                    }
                 else:
-                    return f"+ UNKNOWN {name} {str(data)}"
+                    return {
+                        'data': str(data)
+                    }
 
             if not finished:
-                msgq.put(f"> Step#{step_index} ({step.name})" + (", " + step.details if step.details else ""))
+                msgq.put({
+                    'event': 'started',
+                    'id': step_index,
+                    'name': step.name,
+                    'details': step.details,
+                })
                 for name in step.inputs:
-                    msgq.put(to_info(name, state[name]))
+                    msgq.put({'event': 'plane', 'name': name} | to_info(state[name]))
             elif error is not None:
-                msgq.put(f"ERROR {repr(error)}")
+                msgq.put({
+                    'event': 'error',
+                    'description': repr(error),
+                })
             else:  # completed
-                msgq.put(f"COMPLETED step#{step_index} ({step.name}), took {step._last_profile_duration:.03}s" +
-                         (", " + step.details if step.details else ""))
+                msgq.put({
+                    'event': 'completed',
+                    'id': step_index,
+                    'name': step.name,
+                    'details': step.details,
+                    'duration': step._last_profile_duration,
+                })
                 for name, data in step.last_output.items():
-                    msgq.put(to_info(name, data))
+                    msgq.put({'event': 'plane', 'name': name} | to_info(data))
 
             # needed if receiving messages
             asyncio.run_coroutine_threadsafe(send_msgs(), mainloop)
@@ -142,7 +172,7 @@ async def serve(host="0.0.0.0", port=8080):
         frontend_path = frontend_dir + path
         if not os.path.abspath(frontend_path).startswith(os.path.abspath(frontend_dir)):
             return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
-                b"Hacky URLs are not allowed"
+                   b"Hacky URLs are not allowed"
 
         if os.path.isdir(path):
             if os.path.exists(frontend_path + '/index.html'):
@@ -164,11 +194,11 @@ async def serve(host="0.0.0.0", port=8080):
                     result += "</ul>\n"
                 except PermissionError:
                     return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
-                        b'Not permitted to open this location'
+                           b'Not permitted to open this location'
                 except Exception:
                     traceback.print_exc()
                     return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
-                        b'Server error'
+                           b'Server error'
 
         if not os.path.isfile(frontend_path) and os.path.exists(frontend_path + '/../default.html'):
             frontend_path = frontend_path + '/../default.html'
@@ -189,11 +219,11 @@ async def serve(host="0.0.0.0", port=8080):
             pass
         except PermissionError:
             return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
-               b'Not permitted to open this location'
+                   b'Not permitted to open this location'
         except Exception:
             traceback.print_exc()
             return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
-               b'Server error'
+                   b'Server error'
 
         if path.startswith('/képek/') and '..' not in path:
             try:
@@ -235,14 +265,15 @@ async def serve(host="0.0.0.0", port=8080):
             pass
         except PermissionError:
             return HTTPStatus.FORBIDDEN, [('Content-Type', "text/plain, charset=UTF-8")], \
-               b'Not permitted to open this location'
+                   b'Not permitted to open this location'
         except Exception:
             traceback.print_exc()
             return HTTPStatus.INTERNAL_SERVER_ERROR, [('Content-Type', "text/plain, charset=UTF-8")], \
-                b'Server error'
+                   b'Server error'
 
     async with websockets.serve(handle_connection, host, port, process_request=process_request):
         await asyncio.Future()
+
 
 if __name__ == "__main__":
     asyncio.run(serve())
