@@ -11,3 +11,4 @@ port wsMessage : (String -> msg) -> Sub msg
 port wsClosed : ((Int, String, Bool) -> msg) -> Sub msg
 port initialized : (() -> msg) -> Sub msg
 port onmouseup : (Json.Decode.Value -> msg) -> Sub msg
+port keypress : (String -> msg) -> Sub msg

@@ -28,6 +28,40 @@ view model =
             { x = ((toFloat cursor.x) + model.options.imageView.x + Constants.imgSize.border / model.options.imageView.zoom) -- * model.options.imageView.zoom
             , y = ((toFloat cursor.y) + model.options.imageView.y + Constants.imgSize.border / model.options.imageView.zoom) -- * model.options.imageView.zoom
             }
+
+        imgFor selector = case selector of
+            Nothing -> img [] []
+            Just ((stepName, section), planeName) ->
+                let
+                    extractMatchingUrl plane =
+                        if plane.name == planeName then
+                            case plane.data of
+                                WsTypes.Image imgData -> Just imgData
+                                _ -> Nothing
+                        else
+                            Nothing
+
+                    f step =
+                        case (step, section) of
+                            (Step.Ongoing (Step.Started {inputs}), Route.Inputs) ->
+                                List.filterMap extractMatchingUrl inputs
+
+                            (Step.Finished (Ok success), Route.Inputs) ->
+                                List.filterMap extractMatchingUrl success.start.inputs
+
+                            (Step.Finished (Ok success), Route.Outputs) ->
+                                List.filterMap extractMatchingUrl success.outputs
+
+                            _ -> []
+
+                in
+                case List.concat <| List.map f model.steps of
+                    [] -> img [] []
+                    imgData :: _ -> renderImg model.options Selection.None (Plane planeName <| WsTypes.Image imgData) imgData
+
+        redImg = imgFor model.options.public.composite.r
+        greenImg = imgFor model.options.public.composite.g
+        blueImg = imgFor model.options.public.composite.b
     in
     Browser.Document title
         [ pre [] [ text <| Debug.toString model.options.public ]
@@ -54,9 +88,9 @@ view model =
             )
             [ summary [] [text "Composite preview"]
             , div [class "compositeImage"]
-                [ div [data "channel" "red"] [img [] []]
-                , div [data "channel" "green"] [img [] []]
-                , div [data "channel" "blue"] [img [] []]
+                [ div [data "channel" "red"] [redImg]
+                , div [data "channel" "green"] [greenImg]
+                , div [data "channel" "blue"] [blueImg]
                 ]
             ]
         ]
@@ -217,36 +251,39 @@ renderPlane opts scope plane =
             WsTypes.List strings ->
                 [ pre [] [text <| String.join "\n" strings] ]
 
-            WsTypes.Image {url, min, max} ->
-                [ img (
-                    [ src url
-                    , data "min-value" <| String.fromFloat min
-                    , data "max-value" <| String.fromFloat max
-                    , attribute "loading" "lazy"
-                    , style "zoom" <| String.fromFloat <| opts.imageView.zoom
-                    , style "object-position" <| String.join " " <| List.map
-                        ((\x -> x ++ "px") << String.fromFloat << (\field -> field opts.imageView))
-                        [ .x, .y ]
-                    , on "mouseenter" <| mouseEventDecoder <| Msg.ImgEnter scope plane
-                    , onMouseLeave <| Msg.ImgLeave
-                    , on "mousemove" <| mouseEventDecoder <| Msg.ImgMouseMove scope plane
-                    , on "click" <| mouseEventDecoder <| Msg.ImgMouseClick scope plane
-                    , pd "mousedown" <| mouseEventDecoder <| Msg.ImgMouseDown scope plane
-                    , pd "mousewheel" <| mouseWheelDecoder <| Msg.ImgScroll scope plane
-                    , style "image-rendering" "pixelated"
-                    ] ++ if opts.imageView.zoomed
-                        then
-                            [ style "width" <| (String.fromFloat <| Constants.imgSize.width / opts.imageView.zoom) ++ "px"
-                            , style "height" <| (String.fromFloat <| Constants.imgSize.height / opts.imageView.zoom) ++ "px"
-                            , style "borderWidth" <| (String.fromFloat <| Constants.imgSize.border / opts.imageView.zoom) ++ "px"
-                            ]
-                        else
-                            [ style "width" <| (String.fromFloat <| Constants.imgSize.width / Constants.imgSize.zoom) ++ "px"
-                            , style "height" <| (String.fromFloat <| Constants.imgSize.height / Constants.imgSize.zoom) ++ "px"
-                            ]
-                    )
-                    []
+            WsTypes.Image imgData ->
+                [ renderImg opts scope plane imgData
                 , div [] [] ]
+
+renderImg opts scope plane {url, min, max} =
+    img (
+        [ src url
+        , data "min-value" <| String.fromFloat min
+        , data "max-value" <| String.fromFloat max
+        , attribute "loading" "lazy"
+        , style "zoom" <| String.fromFloat <| opts.imageView.zoom
+        , style "object-position" <| String.join " " <| List.map
+            ((\x -> x ++ "px") << String.fromFloat << (\field -> field opts.imageView))
+            [ .x, .y ]
+        , on "mouseenter" <| mouseEventDecoder <| Msg.ImgEnter scope plane
+        , onMouseLeave <| Msg.ImgLeave
+        , on "mousemove" <| mouseEventDecoder <| Msg.ImgMouseMove scope plane
+        , on "click" <| mouseEventDecoder <| Msg.ImgMouseClick scope plane
+        , pd "mousedown" <| mouseEventDecoder <| Msg.ImgMouseDown scope plane
+        , pd "mousewheel" <| mouseWheelDecoder <| Msg.ImgScroll scope plane
+        , style "image-rendering" "pixelated"
+        ] ++ if opts.imageView.zoomed
+            then
+                [ style "width" <| (String.fromFloat <| Constants.imgSize.width / opts.imageView.zoom) ++ "px"
+                , style "height" <| (String.fromFloat <| Constants.imgSize.height / opts.imageView.zoom) ++ "px"
+                , style "borderWidth" <| (String.fromFloat <| Constants.imgSize.border / opts.imageView.zoom) ++ "px"
+                ]
+            else
+                [ style "width" <| (String.fromFloat <| Constants.imgSize.width / Constants.imgSize.zoom) ++ "px"
+                , style "height" <| (String.fromFloat <| Constants.imgSize.height / Constants.imgSize.zoom) ++ "px"
+                ]
+        )
+        []
 
 renderData : Data -> List (Attribute Msg)
 renderData {key, value} =
