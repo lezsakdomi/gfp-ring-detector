@@ -19,3 +19,4 @@ type Msg
    | ImgMouseClick Selection.Scope Plane MouseEvent
    | ImgMouseDown Selection.Scope Plane MouseEvent
    | ImgScroll Selection.Scope Plane MouseScrollEvent
+   | KeyPress String

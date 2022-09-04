@@ -1,7 +1,7 @@
 module Page.Analyze.Communication exposing (..)
 
 import Constants
-import Json.Decode exposing (decodeString)
+import Json.Decode exposing (decodeString, decodeValue)
 import List.Extra as List
 import Page.Analyze.Model as Model exposing (Model)
 import Page.Analyze.Model.Cursor exposing (Cursor)
@@ -13,6 +13,7 @@ import Page.Analyze.WsTypes as WsTypes
 import Page.Analyze.Model.Plane as Plane exposing (Plane)
 import Parser
 import Ports
+import Route
 import Task
 import Time
 
@@ -263,6 +264,36 @@ update msg model =
             , Cmd.none
             )
 
+        Msg.KeyPress key ->
+            let
+                {options} = model
+                newOptions = {options | public = newPublic}
+
+                {public} = options
+                newPublic = {public | composite = newComposite}
+
+                {composite} = public
+                newComposite = case (key, img) of
+                    ("r", Just img_) -> {composite | r = Just img_}
+                    ("g", Just img_) -> {composite | g = Just img_}
+                    ("b", Just img_) -> {composite | b = Just img_}
+                    _ -> composite
+
+                img = case (model.options.current.plane, model.options.current.scope) of
+                    (Just {name}, Selection.Section section) -> Just (
+                        (
+                            case section of
+                                Selection.StepStart start -> (start.definition.name, Route.Inputs)
+
+
+                                Selection.StepSuccess success -> (success.start.definition.name, Route.Outputs)
+                        )
+                        , name
+                        )
+                    _ -> Nothing
+            in
+            ({model | options = newOptions}, Cmd.none)
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -270,5 +301,6 @@ subscriptions model =
         [ Ports.wsMessage (Msg.WsMessage << decodeString WsTypes.messageParser)
         , Ports.wsClosed (\(code, reason, wasClean) -> Msg.WsClosed {code = code, reason = reason, wasClean = wasClean})
         , Ports.onmouseup (always Msg.MouseUp)
+        , Ports.keypress Msg.KeyPress
         ]
 

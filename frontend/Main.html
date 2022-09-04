@@ -50,6 +50,9 @@
                 document.body.addEventListener('mouseup', (event) => {
                     app.ports.onmouseup && app.ports.onmouseup.send(event);
                 })
+                document.body.addEventListener('keypress', ({key}) => {
+                    app.ports.keypress && app.ports.keypress.send(key);
+                })
             } catch (e) {
                 console.error("App init error:", e)
                 // display initialization errors (e.g. bad flags, infinite recursion)
