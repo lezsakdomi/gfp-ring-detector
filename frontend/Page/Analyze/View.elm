@@ -29,8 +29,8 @@ view model =
             , y = ((toFloat cursor.y) + model.options.imageView.y + Constants.imgSize.border / model.options.imageView.zoom) -- * model.options.imageView.zoom
             }
 
-        imgFor selector = case selector of
-            Nothing -> img [] []
+        imgData_For selector = case selector of
+            Nothing -> Nothing
             Just ((stepName, section), planeName) ->
                 let
                     extractMatchingUrl plane =
@@ -56,12 +56,17 @@ view model =
 
                 in
                 case List.concat <| List.map f model.steps of
-                    [] -> img [] []
-                    imgData :: _ -> renderImg model.options Selection.None (Plane planeName <| WsTypes.Image imgData) imgData
+                    [] -> Nothing
+                    imgData :: _ -> Just ((Plane planeName <| WsTypes.Image imgData), imgData)
 
-        redImg = imgFor model.options.public.composite.r
-        greenImg = imgFor model.options.public.composite.g
-        blueImg = imgFor model.options.public.composite.b
+        renderImg_ imgData_ =
+            case imgData_ of
+                Just (plane, imgData) -> renderImg model.options Selection.None plane imgData
+                Nothing -> img [] []
+
+        redImgData_ = imgData_For model.options.public.composite.r
+        greenImgData_ = imgData_For model.options.public.composite.g
+        blueImgData_ = imgData_For model.options.public.composite.b
     in
     Browser.Document title
         [ pre [] [ text <| Debug.toString model.options.public ]
@@ -82,15 +87,15 @@ view model =
         , details
             ([ id "compositePreview"
             , data "type" "compositePreview"
-            ] ++ if List.any (Maybe.isJust) []
+            ] ++ if List.any (Maybe.isJust) [redImgData_, greenImgData_, blueImgData_]
                 then [attribute "open" ""]
                 else []
             )
             [ summary [] [text "Composite preview"]
             , div [class "compositeImage"]
-                [ div [data "channel" "red"] [redImg]
-                , div [data "channel" "green"] [greenImg]
-                , div [data "channel" "blue"] [blueImg]
+                [ div [data "channel" "red"] [renderImg_ redImgData_]
+                , div [data "channel" "green"] [renderImg_ greenImgData_]
+                , div [data "channel" "blue"] [renderImg_ blueImgData_]
                 ]
             ]
         ]
