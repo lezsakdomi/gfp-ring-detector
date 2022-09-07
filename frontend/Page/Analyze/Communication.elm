@@ -277,6 +277,9 @@ update msg model =
                     ("r", Just img_) -> {composite | r = Just img_}
                     ("g", Just img_) -> {composite | g = Just img_}
                     ("b", Just img_) -> {composite | b = Just img_}
+                    ("R", _) -> {composite | r = Nothing}
+                    ("G", _) -> {composite | g = Nothing}
+                    ("B", _) -> {composite | b = Nothing}
                     _ -> composite
 
                 img = case (model.options.current.plane, model.options.current.scope) of
