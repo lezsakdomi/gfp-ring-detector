@@ -4,9 +4,12 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/dist" />
       <excludeFolder url="file://$MODULE_DIR$/build" />
-      <excludeFolder url="file://$MODULE_DIR$/test-images" />
       <excludeFolder url="file://$MODULE_DIR$/képek" />
       <excludeFolder url="file://$MODULE_DIR$/GF_CO_0624" />
+      <excludeFolder url="file://$MODULE_DIR$/Statisztikai analízis (glue granulum méret)" />
+      <excludeFolder url="file://$MODULE_DIR$/all_frames" />
+      <excludeFolder url="file://$MODULE_DIR$/frame_annotations" />
+      <excludeFolder url="file://$MODULE_DIR$/frames" />
       <excludePattern pattern="elm-stuff" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (gfp-ring-detector)" jdkType="Python SDK" />
@@ -14,5 +17,8 @@
     <orderEntry type="library" name="fuse.js" level="application" />
     <orderEntry type="library" name="fuse.min.js" level="application" />
     <orderEntry type="library" name="fuse.js" level="application" />
+  </component>
+  <component name="PackageRequirementsSettings">
+    <option name="versionSpecifier" value="Don't specify version" />
   </component>
 </module>

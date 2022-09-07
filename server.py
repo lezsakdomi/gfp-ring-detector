@@ -162,10 +162,11 @@ async def handle_connection(ws: WebSocketServerProtocol):
 
 
 async def serve(host="0.0.0.0", port=8080):
-    async def process_request(path, request_headers):
+    async def process_request(path: str, request_headers):
         if 'Upgrade' in request_headers and request_headers['Upgrade'] == 'websocket':
             return None
 
+        path = path.split("?")[0]
         path = unquote(path)
 
         frontend_dir = os.path.dirname(__file__) + '/frontend'

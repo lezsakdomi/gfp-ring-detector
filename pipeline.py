@@ -1,9 +1,12 @@
+import os
+
+from tqdm import tqdm
+
 from list_targets import Target, CustomTarget
 from pipeline_lib import Step, Pipeline
 import numpy as np
 import math
 from copy import deepcopy
-
 
 class RingDetector(Pipeline):
     def _add_to_img5(self, step, pipeline, state, completed=False, step_index=0, *args, **kwargs):
@@ -44,58 +47,113 @@ class RingDetector(Pipeline):
         return DsRed, GFP, DAPI
 
     @Step.of(['DsRed', 'GFP', 'mask'])
-    def clean(self, DsRed, GFP, DAPI):
+    def clean(self, DsRed, GFP):
         from skimage.filters import gaussian
-        DAPI = gaussian(DAPI, 5)
         DsRed_blurred = gaussian(DsRed)
         GFP_blurred = gaussian(GFP)
-        mask = np.ones_like(DAPI, dtype=np.bool)
-        mask[DAPI > 0.2] = 0
-        mask[DsRed_blurred < 0.2] = 0
+        mask = np.ones_like(DsRed, dtype=np.bool)
+        # mask[DsRed_blurred < 0.2] = 0
         DsRed = gaussian(DsRed)
         GFP = gaussian(GFP)
         DsRed[~mask] = 0
         GFP[~mask] = 0
         return DsRed, GFP, mask
 
-    @Step.of(['diff', 'diff_abs'])
-    def diff(self, DsRed, GFP):
-        diff = GFP - DsRed
-        return diff, np.abs(diff)
-
-    @Step.of('sum')
-    def sum(self, DsRed, GFP):
-        return GFP / 2 + DsRed / 2
+    # @Step.of(['diff', 'diff_abs'])
+    # def diff(self, DsRed, GFP):
+    #     diff = GFP - DsRed
+    #     return diff, np.abs(diff)
+    #
+    # @Step.of('sum')
+    # def sum(self, DsRed, GFP):
+    #     return GFP / 2 + DsRed / 2
 
     @Step.of('all_coordinates')
-    def find_granule_centers(self, sum):
+    def find_granule_centers(self, DsRed):
         from skimage.feature import blob_dog as blob
-        coordinates = blob(sum, min_sigma=7, max_sigma=10, threshold=0.01, overlap=1)
+        coordinates = blob(DsRed, min_sigma=7, max_sigma=10, threshold=0.01, overlap=1)
         return list(map(lambda a: (int(a[0]), int(a[1]), int(a[2])), list(coordinates)))
 
-    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates'])
-    def analyze_coordinates(self, all_coordinates, diff, GFP, mask):
+    @Step.of('marked')
+    def fill_holes(self, DAPI):
+        DAPI = DAPI > 128
+        from scipy import ndimage as ndi
+        return ndi.binary_fill_holes(DAPI)
+
+    @Step.of('model')
+    def load_ai(self):
+        from model import saved
+        return saved.get()
+
+    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates', 'fake_membranes'])
+    def analyze_coordinates(self, model, all_coordinates, GFP, mask, DsRed, marked, DAPI):
         from skimage.draw import disk
+        import tensorflow
 
         neutral = []
         gfp_positive = []
         gfp_negative = []
-        for coordinates in all_coordinates:
+        fake_membranes = np.zeros_like(GFP)
+        for (i, coordinates) in tqdm(list(enumerate(all_coordinates))):
             x, y, r = coordinates
-            granule_mask = np.zeros_like(diff, dtype=bool)
+            granule_mask = np.zeros_like(GFP, dtype=bool)
+            if marked[x, y]:
+                try:
+                    from skimage.io import imsave
+                    from skimage.util import img_as_ubyte
+                    frame = DsRed[x-32:x+32, y-32:y+32]
+                    imsave(f"frames/frame_{i:03}.png", img_as_ubyte(frame))
+                    frame = np.zeros_like(frame, dtype='uint8')
+                    from skimage.morphology import flood_fill
+                    frame[marked[x - 32:x + 32, y - 32:y + 32]] = 2
+                    frame[DAPI[x - 32:x + 32, y - 32:y + 32] > 128] = 1
+                    frame[flood_fill(marked[x - 32:x + 32, y - 32:y + 32].astype('uint8'), (32, 32), 2, connectivity=1) != 2] = 0
+                    imsave(f"frame_annotations/frame_{i:03}.png", img_as_ubyte(frame * 32))
+                    gfp_positive.append(coordinates)
+                except IndexError:
+                    pass
             try:
-                xx, yy = disk((x, y), r)
-                granule_mask[xx, yy] = True
-                granule_mask = mask * granule_mask
-                if np.mean(GFP, where=granule_mask) < 0.25:
-                    gfp_negative.append(coordinates)
-                # elif np.mean(diff, where=granule_mask) > 0.2:
-                #     gfp_positive.append(coordinates)
-                else:
-                    neutral.append(coordinates)
+                try:
+                    from skimage.transform import resize
+                    from skimage.color import gray2rgb
+                    from skimage.io import imsave
+                    from skimage.util import img_as_ubyte
+
+                    frame_DsRed = DsRed[x - 32:x + 32, y - 32:y + 32]
+                    # frame_DsRed = gray2rgb(frame_DsRed)
+                    # frame_DsRed = resize(frame_DsRed, (256, 256), anti_aliasing=True)
+
+                    # segmentation_output = model.predict(frame_DsRed.reshape(1, 256, 256, 3), verbose=0)[0].argmax(-1)
+                    segmentation_output = model(frame_DsRed.reshape(1, 64, 64, 1))[0][:, :, 1].numpy()
+                    imsave(f"all_frames/frame_{i:03}_segmented.png", img_as_ubyte(segmentation_output))
+                    # segmentation_output = segmentation_output == 1
+                    # segmentation_output = resize(segmentation_output, (60, 60))
+                    fake_membranes[x - 32:x + 32, y - 32:y + 32] += segmentation_output
+                except ValueError as e:
+                    # print(f"Skipping ({x},{y})")
+                    pass
+
+                # xx, yy = disk((x, y), r)
+                # granule_mask[xx, yy] = True
+                # granule_mask = mask * granule_mask
+                # if np.mean(GFP, where=granule_mask) < 0.25:
+                #     gfp_negative.append(coordinates)
+                # # elif np.mean(diff, where=granule_mask) > 0.2:
+                # #     gfp_positive.append(coordinates)
+                # else:
+                #     neutral.append(coordinates)
+
+                from skimage.io import imsave
+                from skimage.util import img_as_ubyte
+                frame = DsRed[x - 32:x + 32, y - 32:y + 32]
+                imsave(f"all_frames/frame_{i:03}.png", img_as_ubyte(frame))
+
+                pass
+            except ValueError as e:
+                print(f"Error ({e}) for #{i:03}")
             except IndexError:
                 pass
-        return gfp_positive, neutral, gfp_negative
+        return gfp_positive, neutral, gfp_negative, fake_membranes
 
     @Step.of('stat_text')
     def count(self, all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):

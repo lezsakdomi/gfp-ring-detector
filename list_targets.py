@@ -68,6 +68,18 @@ class Target:
         return img
 
 
+class RgbTarget(Target):
+    def __init__(self, path, dataset):
+        self.path = path
+        self.name = os.path.basename(os.path.splitext(path)[0])
+        self.dataset = dataset
+
+    def chread(self, c):
+        from skimage.io import imread
+        img = imread(self.path)
+        return img[:, :, c]
+
+
 class SliceTarget(Target):
     def __init__(self, path, z=0):
         self.z = z
