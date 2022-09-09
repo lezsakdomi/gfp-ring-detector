@@ -12,7 +12,7 @@ import Page.Analyze.Msg as Msg exposing (Msg)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Page.Analyze.Msg.Helpers exposing (mouseEventDecoder, mouseWheelDecoder, pd)
+import Page.Analyze.Msg.Helpers exposing (mouseEventDecoder, touchEventDecoder, mouseWheelDecoder, pd)
 import Page.Analyze.View.Svg exposing (svg)
 import Page.Analyze.View.TargetName as TargetName
 import Page.Analyze.WsTypes as WsTypes
@@ -69,7 +69,9 @@ view model =
         blueImgData_ = imgData_For model.options.public.composite.b
     in
     Browser.Document title
-        [ pre [] [ text <| Debug.toString model.options.public ]
+        [ details []
+            [ pre [] [ text <| Debug.toString model.options.public ]
+            ]
         , ul [id "ul"]
             <| (List.map (renderEntry model.options) <| (List.concat <| List.map transformStep model.steps)
                 ++ case model.wsState of
@@ -258,7 +260,13 @@ renderPlane opts scope plane =
 
             WsTypes.Image imgData ->
                 [ renderImg opts scope plane imgData
-                , div [] [] ]
+                , div [] []
+                , div []
+                    [ button [ onClick <| Msg.KeyPressOn "r" (Just plane, scope) ] [text "red"]
+                    , button [ onClick <| Msg.KeyPressOn "g" (Just plane, scope) ] [text "green"]
+                    , button [ onClick <| Msg.KeyPressOn "b" (Just plane, scope) ] [text "blue"]
+                    ]
+                ]
 
 renderImg opts scope plane {url, min, max} =
     img (
@@ -273,8 +281,10 @@ renderImg opts scope plane {url, min, max} =
         , on "mouseenter" <| mouseEventDecoder <| Msg.ImgEnter scope plane
         , onMouseLeave <| Msg.ImgLeave
         , on "mousemove" <| mouseEventDecoder <| Msg.ImgMouseMove scope plane
+        , pd "touchmove" <| touchEventDecoder <| Msg.ImgMouseMove scope plane
         , on "click" <| mouseEventDecoder <| Msg.ImgMouseClick scope plane
         , pd "mousedown" <| mouseEventDecoder <| Msg.ImgMouseDown scope plane
+        , pd "touchstart" <| touchEventDecoder <| Msg.ImgMouseDown scope plane
         , pd "mousewheel" <| mouseWheelDecoder <| Msg.ImgScroll scope plane
         , style "image-rendering" "pixelated"
         ] ++ if opts.imageView.zoomed

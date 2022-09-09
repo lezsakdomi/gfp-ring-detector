@@ -3,6 +3,7 @@ module Page.Analyze.Msg.Helpers exposing (..)
 import Html
 import Html.Events
 import Json.Decode exposing (..)
+import Json.Encode
 
 type alias MouseEvent =
    { offsetX: Float
@@ -20,6 +21,25 @@ mouseEventDecoder msg =
     map msg <| map2 MouseEvent
         (field "offsetX" float)
         (field "offsetY" float)
+
+touchEventDecoder : (MouseEvent -> msg) -> Decoder msg
+touchEventDecoder msg =
+    let
+        convert touchPosition targetPosition =
+            MouseEvent
+                (touchPosition.x - targetPosition.x)
+                (touchPosition.y - targetPosition.y)
+    in
+    map msg <| map2 convert
+        (field "targetTouches" <| field "0" <| map2 (\x y -> {x = x, y = y})
+            (field "clientX" float)
+            (field "clientY" float)
+        )
+        (field "target" <| map2 (\x y -> {x = x, y = y})
+            (field "x" float)
+            (field "y" float)
+            )
+        -- todo use offsetTop and offsetLeft, and take offsetParent into account recursively
 
 mouseWheelDecoder : (MouseScrollEvent -> msg) -> Decoder msg
 mouseWheelDecoder msg =

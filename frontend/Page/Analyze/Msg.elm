@@ -2,7 +2,7 @@ module Page.Analyze.Msg exposing (..)
 
 import Json.Decode as Decode
 import Page.Analyze.Model.Plane exposing (Plane)
-import Page.Analyze.Model.Selection as Selection
+import Page.Analyze.Model.Selection as Selection exposing (Scope)
 import Page.Analyze.Model.Step as Step
 import Page.Analyze.Msg.Helpers as Helpers exposing (MouseEvent, MouseScrollEvent)
 import Page.Analyze.WsTypes exposing (..)
@@ -20,3 +20,4 @@ type Msg
    | ImgMouseDown Selection.Scope Plane MouseEvent
    | ImgScroll Selection.Scope Plane MouseScrollEvent
    | KeyPress String
+   | KeyPressOn String (Maybe Plane, Scope)
