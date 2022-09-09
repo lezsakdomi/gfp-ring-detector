@@ -264,7 +264,7 @@ update msg model =
             , Cmd.none
             )
 
-        Msg.KeyPress key ->
+        Msg.KeyPressOn key imgSpec ->
             let
                 {options} = model
                 newOptions = {options | public = newPublic}
@@ -282,7 +282,7 @@ update msg model =
                     ("B", _) -> {composite | b = Nothing}
                     _ -> composite
 
-                img = case (model.options.current.plane, model.options.current.scope) of
+                img = case imgSpec of
                     (Just {name}, Selection.Section section) -> Just (
                         (
                             case section of
@@ -296,6 +296,9 @@ update msg model =
                     _ -> Nothing
             in
             ({model | options = newOptions}, Cmd.none)
+
+        Msg.KeyPress key ->
+            update (Msg.KeyPressOn key (model.options.current.plane, model.options.current.scope)) model
 
 
 subscriptions : Model -> Sub Msg
