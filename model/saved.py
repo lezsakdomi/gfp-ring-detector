@@ -9,6 +9,7 @@ loaded_model: keras.Model = None
 def get():
     global loaded_model
     if loaded_model is None:
+        # todo prepare for concurrency
         loaded_model = keras.models.load_model(filename)
 
     return loaded_model

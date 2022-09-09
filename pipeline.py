@@ -2,7 +2,7 @@ import os
 
 from tqdm import tqdm
 
-from list_targets import Target, CustomTarget
+from list_targets import Target, CustomTarget, RgbTarget
 from pipeline_lib import Step, Pipeline
 import numpy as np
 import math
@@ -85,7 +85,7 @@ class RingDetector(Pipeline):
         from model import saved
         return saved.get()
 
-    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates', 'fake_membranes'])
+    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates', 'fake_GFP', 'fake_membranes', 'result_1', 'result_2'])
     def analyze_coordinates(self, model, all_coordinates, GFP, mask, DsRed, marked, DAPI):
         from skimage.draw import disk
         import tensorflow
@@ -93,22 +93,26 @@ class RingDetector(Pipeline):
         neutral = []
         gfp_positive = []
         gfp_negative = []
-        fake_membranes = np.zeros_like(GFP)
+        fake_GFP = np.zeros_like(GFP)
+        fake_membranes = np.zeros_like(GFP, dtype=bool)
+        result_1 = np.zeros_like(GFP)
+        result_2 = np.zeros_like(GFP)
         for (i, coordinates) in tqdm(list(enumerate(all_coordinates))):
             x, y, r = coordinates
             granule_mask = np.zeros_like(GFP, dtype=bool)
-            if marked[x, y]:
+            fr = 32
+            if isinstance(self.target, RgbTarget) and marked[x, y]:
                 try:
                     from skimage.io import imsave
                     from skimage.util import img_as_ubyte
-                    frame = DsRed[x-32:x+32, y-32:y+32]
-                    imsave(f"frames/frame_{i:03}.png", img_as_ubyte(frame))
-                    frame = np.zeros_like(frame, dtype='uint8')
+                    input_frame = DsRed[x - fr:x + fr, y - fr:y + fr]
+                    imsave(f"frames/frame_{i:03}.png", img_as_ubyte(input_frame))
+                    input_frame = np.zeros_like(input_frame, dtype='uint8')
                     from skimage.morphology import flood_fill
-                    frame[marked[x - 32:x + 32, y - 32:y + 32]] = 2
-                    frame[DAPI[x - 32:x + 32, y - 32:y + 32] > 128] = 1
-                    frame[flood_fill(marked[x - 32:x + 32, y - 32:y + 32].astype('uint8'), (32, 32), 2, connectivity=1) != 2] = 0
-                    imsave(f"frame_annotations/frame_{i:03}.png", img_as_ubyte(frame * 32))
+                    input_frame[marked[x - fr:x + fr, y - fr:y + fr]] = 2
+                    input_frame[DAPI[x - fr:x + fr, y - fr:y + fr] > 128] = 1
+                    input_frame[flood_fill(marked[x - fr:x + fr, y - fr:y + fr].astype('uint8'), (fr, fr), 2, connectivity=1) != 2] = 0
+                    imsave(f"frame_annotations/frame_{i:03}.png", img_as_ubyte(input_frame * fr))
                     gfp_positive.append(coordinates)
                 except IndexError:
                     pass
@@ -118,42 +122,52 @@ class RingDetector(Pipeline):
                     from skimage.color import gray2rgb
                     from skimage.io import imsave
                     from skimage.util import img_as_ubyte
+                    from skimage.filters import threshold_otsu
 
-                    frame_DsRed = DsRed[x - 32:x + 32, y - 32:y + 32]
-                    # frame_DsRed = gray2rgb(frame_DsRed)
-                    # frame_DsRed = resize(frame_DsRed, (256, 256), anti_aliasing=True)
+                    frame_DsRed = DsRed[x - fr:x + fr, y - fr:y + fr]
 
-                    # segmentation_output = model.predict(frame_DsRed.reshape(1, 256, 256, 3), verbose=0)[0].argmax(-1)
-                    segmentation_output = model(frame_DsRed.reshape(1, 64, 64, 1))[0][:, :, 1].numpy()
-                    imsave(f"all_frames/frame_{i:03}_segmented.png", img_as_ubyte(segmentation_output))
-                    # segmentation_output = segmentation_output == 1
-                    # segmentation_output = resize(segmentation_output, (60, 60))
-                    fake_membranes[x - 32:x + 32, y - 32:y + 32] += segmentation_output
+                    frame_segmentation = model(frame_DsRed.reshape(1, 2 * fr, 2 * fr, 1))[0].numpy()
+                    if (isinstance(self.target, RgbTarget)):
+                        imsave(f"all_frames/frame_{i:03}_segmented.png", img_as_ubyte(frame_segmentation))
+
+                    frame_membrane_pred = frame_segmentation[:, :, 1]
+                    fake_GFP[x - fr:x + fr, y - fr:y + fr] += frame_membrane_pred
+
+                    score_1 = np.sum(frame_membrane_pred * frame_membrane_pred * GFP[x - fr:x + fr, y - fr: y + fr])\
+                              / np.sum(frame_membrane_pred * frame_membrane_pred)
+
+                    frame_membrane_pred = frame_membrane_pred > threshold_otsu(frame_membrane_pred)
+                    fake_membranes[x - fr:x + fr, y - fr:y + fr][frame_membrane_pred] = True
+
+                    score_2 = np.sum(frame_membrane_pred * GFP[x - fr:x + fr, y - fr: y + fr])\
+                              / np.sum(frame_membrane_pred)
+
+                    result_1[x - fr:x + fr, y - fr:y + fr] = np.maximum(frame_membrane_pred * score_1, result_1[x - fr:x + fr, y - fr:y + fr])
+                    result_2[x - fr:x + fr, y - fr:y + fr] = np.maximum(frame_membrane_pred * score_2, result_2[x - fr:x + fr, y - fr:y + fr])
+
+                    if score_1 > 0.15:
+                        gfp_positive.append(coordinates)
+                    elif score_1 > 0.14:
+                        neutral.append(coordinates)
+                    else:
+                        gfp_negative.append(coordinates)
                 except ValueError as e:
                     # print(f"Skipping ({x},{y})")
                     pass
 
-                # xx, yy = disk((x, y), r)
-                # granule_mask[xx, yy] = True
-                # granule_mask = mask * granule_mask
-                # if np.mean(GFP, where=granule_mask) < 0.25:
-                #     gfp_negative.append(coordinates)
-                # # elif np.mean(diff, where=granule_mask) > 0.2:
-                # #     gfp_positive.append(coordinates)
-                # else:
-                #     neutral.append(coordinates)
-
                 from skimage.io import imsave
                 from skimage.util import img_as_ubyte
-                frame = DsRed[x - 32:x + 32, y - 32:y + 32]
-                imsave(f"all_frames/frame_{i:03}.png", img_as_ubyte(frame))
-
-                pass
+                input_frame = DsRed[x - fr:x + fr, y - fr:y + fr]
+                if isinstance(self.target, RgbTarget):
+                    imsave(f"all_frames/frame_{i:03}.png", img_as_ubyte(input_frame))
             except ValueError as e:
-                print(f"Error ({e}) for #{i:03}")
+                if f"{e}" == "zero-size array to reduction operation minimum which has no identity":
+                    pass
+                else:
+                    print(f"Error ({e}) for #{i:03}")
             except IndexError:
                 pass
-        return gfp_positive, neutral, gfp_negative, fake_membranes
+        return gfp_positive, neutral, gfp_negative, fake_GFP, fake_membranes, result_1, result_2
 
     @Step.of('stat_text')
     def count(self, all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
@@ -187,6 +201,11 @@ class RingDetector(Pipeline):
             return img
 
         return list(map(visualize_list, args))
+
+    @Step.of('save_path')
+    def save_stats(self, target, stat_text):
+        open(target.stats_path, 'w').writelines(stat_text)
+        return target.stats_path
 
     def _hook(self, hook, *args, **kwargs):
         if self._interactive:
