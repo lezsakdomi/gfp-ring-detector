@@ -133,12 +133,13 @@ if __name__ == '__main__':
 
     df = pd.DataFrame(columns=['name', 'h',
                                'fname_template',
-                               'scalar ratio', 'scalar positives', 'stat',
-                               'count', 'hit count', 'miss count', 'ratio',
+                               'count', 'gFP positive', 'gFP negative', 'invalid',
+                               'dropped', 'gFP negative ratio',
                                ])
 
-    h_re = re.compile('képek/(-?\d+)h/')
+    h_re = re.compile(r'képek[/\\](-?\d+)h[/\\]')
 
+    print(df)
     for target in walk():
         print(target)
         row = {'name': target.name}
@@ -150,18 +151,16 @@ if __name__ == '__main__':
                 print(k, repr(target.stats[k]))
                 row[k] = target.stats[k]
         df.loc[target.path] = row
+        print()
     df = df.astype({
         'h': 'int',
-        'scalar ratio': 'float',
-        'scalar positives': 'float',
-        'stat': 'float',
         'count': 'int',
-        'hit count': 'int',
-        'miss count': 'int',
-        'ratio': 'float',
+        'gFP positive': 'int',
+        'gFP negative': 'int',
+        'invalid': 'int',
     })
-    df['total count'] = df['hit count'] + df['miss count']
-    print(df)
+    df['total count'] = df['gFP positive'] + df['gFP negative']
+    df['ratio'] = df['gFP positive'] / df['total count']
 
     import matplotlib.pyplot as plt
     # plt.figure()

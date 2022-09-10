@@ -80,12 +80,32 @@ class RingDetector(Pipeline):
         from scipy import ndimage as ndi
         return ndi.binary_fill_holes(DAPI)
 
+    @Step.of('GFP')
+    def threshold(self, GFP):
+        from skimage.morphology import disk
+        from skimage.util import img_as_float, img_as_ubyte
+        from skimage.filters.rank import mean, percentile
+        from skimage.filters import threshold_local, rank
+        import numpy as np
+
+        selem = disk(8)
+        # GFP = img_as_ubyte(GFP)
+        # th = mean(GFP, selem)
+        # mean_mask = th < percentile(GFP, selem, p0=0.75)
+        # th[mean_mask] = ((percentile(GFP, selem, p0=0.75) + th) / 2)[mean_mask]
+        th = threshold_local(GFP, 15, offset=-0.01)
+        # th = img_as_float(th)
+        # GFP = img_as_float(GFP)
+        GFP[GFP < th] = 0
+        return GFP
+
     @Step.of('model')
     def load_ai(self):
         from model import saved
         return saved.get()
 
-    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates', 'fake_GFP', 'fake_membranes', 'result_1', 'result_2'])
+    @Step.of(['positive_coordinates', 'neutral_coordinates', 'negative_coordinates',
+              'fake_GFP', 'fake_membranes', 'expected_membranes', 'found_membranes', 'result'])
     def analyze_coordinates(self, model, all_coordinates, GFP, mask, DsRed, marked, DAPI):
         from skimage.draw import disk
         import tensorflow
@@ -95,8 +115,9 @@ class RingDetector(Pipeline):
         gfp_negative = []
         fake_GFP = np.zeros_like(GFP)
         fake_membranes = np.zeros_like(GFP, dtype=bool)
-        result_1 = np.zeros_like(GFP)
-        result_2 = np.zeros_like(GFP)
+        found_membranes = np.zeros_like(GFP, dtype=bool)
+        expected_membranes = np.zeros_like(GFP, dtype=bool)
+        result = np.zeros_like(GFP)
         for (i, coordinates) in tqdm(list(enumerate(all_coordinates))):
             x, y, r = coordinates
             granule_mask = np.zeros_like(GFP, dtype=bool)
@@ -123,6 +144,7 @@ class RingDetector(Pipeline):
                     from skimage.io import imsave
                     from skimage.util import img_as_ubyte
                     from skimage.filters import threshold_otsu
+                    from skimage.morphology import thin
 
                     frame_DsRed = DsRed[x - fr:x + fr, y - fr:y + fr]
 
@@ -133,21 +155,24 @@ class RingDetector(Pipeline):
                     frame_membrane_pred = frame_segmentation[:, :, 1]
                     fake_GFP[x - fr:x + fr, y - fr:y + fr] += frame_membrane_pred
 
-                    score_1 = np.sum(frame_membrane_pred * frame_membrane_pred * GFP[x - fr:x + fr, y - fr: y + fr])\
-                              / np.sum(frame_membrane_pred * frame_membrane_pred)
-
                     frame_membrane_pred = frame_membrane_pred > threshold_otsu(frame_membrane_pred)
                     fake_membranes[x - fr:x + fr, y - fr:y + fr][frame_membrane_pred] = True
 
-                    score_2 = np.sum(frame_membrane_pred * GFP[x - fr:x + fr, y - fr: y + fr])\
-                              / np.sum(frame_membrane_pred)
+                    expected_membranes[x - fr:x + fr, y - fr:y + fr] += thin(frame_membrane_pred)
+                    expected_count = np.sum(thin(frame_membrane_pred))
 
-                    result_1[x - fr:x + fr, y - fr:y + fr] = np.maximum(frame_membrane_pred * score_1, result_1[x - fr:x + fr, y - fr:y + fr])
-                    result_2[x - fr:x + fr, y - fr:y + fr] = np.maximum(frame_membrane_pred * score_2, result_2[x - fr:x + fr, y - fr:y + fr])
+                    frame_membrane_pred *= GFP[x - fr:x + fr, y - fr:y + fr] > 0
+                    frame_membrane_pred = thin(frame_membrane_pred)
 
-                    if score_1 > 0.15:
+                    found_membranes[x - fr:x + fr, y - fr:y + fr] += frame_membrane_pred
+
+                    score = np.sum(frame_membrane_pred) / expected_count
+                    result[x - fr:x + fr, y - fr:y + fr] = np.maximum(frame_membrane_pred * score,
+                                                                      result[x - fr:x + fr, y - fr:y + fr])
+
+                    if score > 0.7:
                         gfp_positive.append(coordinates)
-                    elif score_1 > 0.14:
+                    if score > 0.5:
                         neutral.append(coordinates)
                     else:
                         gfp_negative.append(coordinates)
@@ -167,7 +192,8 @@ class RingDetector(Pipeline):
                     print(f"Error ({e}) for #{i:03}")
             except IndexError:
                 pass
-        return gfp_positive, neutral, gfp_negative, fake_GFP, fake_membranes, result_1, result_2
+        return gfp_positive, neutral, gfp_negative,\
+               fake_GFP, fake_membranes, expected_membranes, found_membranes, result
 
     @Step.of('stat_text')
     def count(self, all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
