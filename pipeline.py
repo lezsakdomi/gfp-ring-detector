@@ -93,11 +93,11 @@ class RingDetector(Pipeline):
         # th = mean(GFP, selem)
         # mean_mask = th < percentile(GFP, selem, p0=0.75)
         # th[mean_mask] = ((percentile(GFP, selem, p0=0.75) + th) / 2)[mean_mask]
-        th = threshold_local(GFP, 15, offset=-0.01)
+        # th = threshold_local(GFP, 15, offset=-0.01)
+        th = rank.otsu(GFP, selem) / 256
         # th = img_as_float(th)
         # GFP = img_as_float(GFP)
-        GFP[GFP < th] = 0
-        return GFP
+        return GFP < th
 
     @Step.of('model')
     def load_ai(self):
@@ -113,11 +113,11 @@ class RingDetector(Pipeline):
         neutral = []
         gfp_positive = []
         gfp_negative = []
-        fake_GFP = np.zeros_like(GFP)
+        fake_GFP = np.zeros_like(GFP, dtype=float)
         fake_membranes = np.zeros_like(GFP, dtype=bool)
         found_membranes = np.zeros_like(GFP, dtype=bool)
         expected_membranes = np.zeros_like(GFP, dtype=bool)
-        result = np.zeros_like(GFP)
+        result = np.zeros_like(GFP, dtype=float)
         for (i, coordinates) in tqdm(list(enumerate(all_coordinates))):
             x, y, r = coordinates
             granule_mask = np.zeros_like(GFP, dtype=bool)
