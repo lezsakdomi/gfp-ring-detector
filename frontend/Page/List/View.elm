@@ -7,6 +7,8 @@ import Html.Events exposing (..)
 import Page.List.Model exposing (..)
 import Page.List.Msg exposing (..)
 import PickledData
+import Route
+import Url.Builder
 
 view : Model -> Browser.Document Msg
 view {filter, results, loading} =
@@ -42,7 +44,11 @@ view {filter, results, loading} =
                 li [] [
                     details [attribute "data-type" "target"]
                         [ summary []
-                            [ a [href <| "analyze/" ++ (PickledData.toString dump)]
+                            [ a
+                                [ href <| Route.toString Url.Builder.Relative <| Route.Analyze
+                                    (Just <| Route.EncodedTarget dump)
+                                    (Route.AnalyzeOptions (Route.Selection Nothing Nothing Nothing) {r = Nothing, g = Nothing, b = Nothing})
+                                ]
                                 [ text title
                                 ]
                             ]
