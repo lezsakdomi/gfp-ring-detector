@@ -1,8 +1,9 @@
-module Route exposing (Route(..), Target(..), ListOptions, Step, Layer, StepLayer(..), Image, Selection, AnalyzeOptions, routeParser, parseRoute)
+module Route exposing (Route(..), Target(..), ListOptions, Step, Layer, StepLayer(..), Image, Selection, AnalyzeOptions, routeParser, parseRoute, toString)
 
 import Page.Analyze.Model.Cursor exposing (Cursor)
 import PickledData exposing (PickledData)
 import Url exposing (Url)
+import Url.Builder as Builder
 import Url.Parser exposing (..)
 import Url.Parser.Query as Query
 
@@ -148,3 +149,35 @@ queryFloat argName =
 parseRoute : Url -> Maybe Route
 parseRoute url =
     parse routeParser url
+
+toString : Builder.Root -> Route -> String
+toString root route =
+    let
+        build : List String -> List Builder.QueryParameter -> Maybe String -> String
+        build path params hash =
+            Builder.custom root (Debug.log "path" path) (Debug.log "params" params) (Debug.log "hash" hash)
+    in
+    case route of
+        List maybeString listOptions ->
+            let
+                query =
+                    case listOptions.filter of
+                        Just filter ->
+                            [Builder.string "filter" filter]
+
+                        Nothing ->
+                            []
+            in
+            build ["list"] query Nothing
+
+        Analyze maybeTarget analyzeOptions ->
+            let
+                path =
+                    [ Just "analyze"
+                    , case maybeTarget of
+                        Nothing -> Nothing
+                        Just (FnameTemplate tpl) -> Just <| Url.percentEncode tpl
+                        Just (EncodedTarget {data}) -> Just <| Url.percentEncode data
+                    ]
+            in
+            build (List.filterMap identity path) [] Nothing
