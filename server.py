@@ -105,6 +105,7 @@ async def handle_connection(ws: WebSocketServerProtocol):
                     'name': step.name,
                     'details': step.details,
                     'duration': step._last_profile_duration,
+                    'step_count': len(ring_detector.steps)
                 })
                 for name, data in step.last_output.items():
                     msgq.put({'event': 'plane', 'name': name} | to_info(data))
@@ -153,9 +154,12 @@ async def handle_connection(ws: WebSocketServerProtocol):
             await ws.send(json)
 
     if path == '/reload':
-        async with websockets.connect("ws://localhost:8000/reload") as server:
-            async for message in server:
-                await ws.send(message)
+        try:
+            async with websockets.connect("ws://localhost:8000/reload") as server:
+                async for message in server:
+                    await ws.send(message)
+        except ConnectionRefusedError:
+            pass
 
     else:
         await ws.close(4001)

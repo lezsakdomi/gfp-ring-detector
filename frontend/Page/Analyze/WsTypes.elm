@@ -9,7 +9,7 @@ type WsMessage
     = StepStarted {id: Int, name: String, details: Maybe String}
     | Plane {name: String, data: PlaneData}
     | Error {description: String}
-    | StepCompleted {id: Int, name: String, durationS: Float, details: Maybe String}
+    | StepCompleted {id: Int, name: String, durationS: Float, details: Maybe String, totalSteps: Int}
 
 type PlaneData
     = Image {url: String, min: Float, max: Float}
@@ -34,11 +34,12 @@ messageParser =
                 (maybe <| field "details" string)
 
         stepCompleted =
-            map4 (\id name details duration -> StepCompleted {id = id, name = name, durationS = duration, details = details})
+            map5 (\id name details duration stepCount -> StepCompleted {id = id, name = name, durationS = duration, details = details, totalSteps = stepCount})
                 (field "id" int)
                 (field "name" string)
                 (maybe <| field "details" string)
                 (field "duration" float)
+                (field "step_count" int)
 
         error =
             map (\description -> Error {description = description})
