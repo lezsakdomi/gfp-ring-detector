@@ -43,9 +43,12 @@ class RingDetector(Pipeline):
 
         return DsRed, GFP, DAPI
 
-    @Step.of(['DsRed', 'GFP', 'mask'])
+    @Step.of(['DsRed', 'GFP', 'mask', 'gfp_min'])
     def clean(self, DsRed, GFP, DAPI):
         from skimage.filters import gaussian
+        from skimage.filters.rank import minimum
+        from skimage.morphology import disk
+        from skimage.util import img_as_ubyte, img_as_float
         DAPI = gaussian(DAPI, 5)
         DsRed_blurred = gaussian(DsRed)
         GFP_blurred = gaussian(GFP)
@@ -54,9 +57,11 @@ class RingDetector(Pipeline):
         mask[DsRed_blurred < 0.2] = 0
         DsRed = gaussian(DsRed)
         GFP = gaussian(GFP)
+        gfp_min = img_as_float(minimum(img_as_ubyte(GFP), footprint=disk(30)))
+        GFP = GFP - gfp_min
         DsRed[~mask] = 0
         GFP[~mask] = 0
-        return DsRed, GFP, mask
+        return DsRed, GFP, mask, gfp_min
 
     @Step.of(['diff', 'diff_abs'])
     def diff(self, DsRed, GFP):
@@ -106,11 +111,11 @@ class RingDetector(Pipeline):
         positive = len(positive_coordinates)
 
         stat_text.append(f"Count: {all}\n")
-        stat_text.append(f"GFP positive: {neutral}\n")
-        stat_text.append(f"GFP negative: {negative}\n")
+        stat_text.append(f"Positive: {neutral}\n")
+        stat_text.append(f"Negative: {negative}\n")
         stat_text.append(f"Invalid: {positive}\n")
         stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
-        stat_text.append(f"GFP negative ratio: {negative / (neutral + negative):.2%}\n")
+        stat_text.append(f"Negative ratio: {negative / (neutral + negative):.2%}\n")
         return stat_text
 
     @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
@@ -129,6 +134,11 @@ class RingDetector(Pipeline):
             return img
 
         return list(map(visualize_list, args))
+
+    @Step.of('save_path')
+    def save_stats(self, target, stat_text):
+        open(target.stats_path, 'w').writelines(stat_text)
+        return target.stats_path
 
     def _hook(self, hook, *args, **kwargs):
         if self._interactive:

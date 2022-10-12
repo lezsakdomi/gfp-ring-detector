@@ -9,8 +9,11 @@ import Model.Base exposing (Base)
 import Page.Analyze
 import Page.AwaitingTarget
 import Page.List
+import Page.List.Cmd as ListCmd
 import Page.List.Msg
 import Page.List.View
+import Page.ListAnalyze
+import Page.ListAnalyze.Msg
 import Ports
 import Route
 import Url exposing (Url)
@@ -27,6 +30,7 @@ type PageMsg
     = AwaitingTargetMsg Page.AwaitingTarget.Msg
     | AnalyzeMsg Page.Analyze.Msg
     | ListMsg Page.List.Msg.Msg
+    | ListAnalyzeMsg Page.ListAnalyze.Msg.Msg
 
 main =
     Browser.application
@@ -105,6 +109,9 @@ view {pageModel, base} =
         Model.ListModel model ->
             mapDocument (PageMsg << ListMsg) <| Page.List.View.view model
 
+        Model.ListAnalyzeModel model ->
+            mapDocument (PageMsg << ListAnalyzeMsg) <| Page.ListAnalyze.view model
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update mainMsg mainModel =
     let
@@ -153,9 +160,20 @@ update mainMsg mainModel =
                     todo "Unexpected msg/model combo"
 
                 (ListMsg msg, Model.ListModel model) ->
-                    pageResult <| (Model.ListModel <| Page.List.update msg model, Cmd.none)
+                    case Page.List.update msg model of
+                        (newModel, ListCmd.None) ->
+                            pageResult <| (Model.ListModel <| newModel, Cmd.none)
+
+                        (newModel, ListCmd.StartAnalysis) ->
+                            pageResult <| Tuple.mapBoth Model.ListAnalyzeModel (Cmd.map ListAnalyzeMsg) <| Page.ListAnalyze.init base newModel
 
                 (ListMsg _, _) ->
+                    todo "Unexpected msg/model combo"
+
+                (ListAnalyzeMsg msg, Model.ListAnalyzeModel model) ->
+                    pageResult <| Tuple.mapBoth Model.ListAnalyzeModel (Cmd.map ListAnalyzeMsg) <| Page.ListAnalyze.update msg model
+
+                (ListAnalyzeMsg _, _) ->
                     todo "Unexpected msg/model combo"
 
         (JsInitialized (), _) ->
@@ -173,5 +191,8 @@ subscriptions {pageModel} =
 
         Model.ListModel model ->
             Sub.map (PageMsg << ListMsg) <| Page.List.subscriptions model
+
+        Model.ListAnalyzeModel model ->
+            Sub.map (PageMsg << ListAnalyzeMsg) <| Page.ListAnalyze.subscriptions model
     , Ports.initialized JsInitialized
     ]

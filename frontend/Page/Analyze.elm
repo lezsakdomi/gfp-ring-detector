@@ -1,4 +1,4 @@
-module Page.Analyze exposing (Model, init, Msg, update, view, subscriptions)
+module Page.Analyze exposing (Model, init, Msg, update, view, subscriptions, openWs)
 
 import Constants
 import Model.Base as Base exposing (Base)
@@ -15,6 +15,17 @@ import Route
 
 type alias Model =
    Model.Model
+
+openWs : Base -> Route.Target -> Cmd msg
+openWs base target =
+    let
+        getWsUrl path =
+            Base.getWsUrl base <| "/analyze/" ++ path
+    in
+    Ports.openWs <| case target of
+        Route.FnameTemplate tpl -> getWsUrl tpl
+        Route.EncodedTarget data -> getWsUrl <| PickledData.toString data
+
 
 init : Base -> Route.Target -> Route.AnalyzeOptions -> (Model, Cmd Msg)
 init base target options =
@@ -33,9 +44,7 @@ init base target options =
         , steps = []
         , wsState = WsState.Open
         }
-    , Ports.openWs <| case target of
-        Route.FnameTemplate tpl -> getWsUrl tpl
-        Route.EncodedTarget data -> getWsUrl <| PickledData.toString data
+    , openWs base target
     )
 
 type alias Msg =

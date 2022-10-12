@@ -5,10 +5,12 @@ import Model.Base exposing (Base)
 import Page.Analyze
 import Page.AwaitingTarget
 import Page.List.Model
+import Page.ListAnalyze.Model
 
 type PageModel
     = AnalyzeModel Page.Analyze.Model
     | ListModel Page.List.Model.Model
+    | ListAnalyzeModel Page.ListAnalyze.Model.Model
     | AwaitingTargetModel Page.AwaitingTarget.Model
 
 type alias Model =

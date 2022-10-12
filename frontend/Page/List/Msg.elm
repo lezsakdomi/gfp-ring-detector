@@ -6,4 +6,8 @@ import Page.List.WsTypes exposing (WsMessage)
 type Msg
     = WsMessage (Result Json.Decode.Error WsMessage)
     | WsClosed
-    | FilterChanged String
+    | ClientMsg ClientMsg
+
+type ClientMsg
+    = FilterChanged String
+    | StartAnalysis

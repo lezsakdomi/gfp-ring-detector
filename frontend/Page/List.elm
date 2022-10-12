@@ -1,10 +1,11 @@
-module Page.List exposing (init, update, subscriptions)
+module Page.List exposing (init, update, subscriptions, clientUpdate)
 
 import Browser exposing (Document)
 import Constants
 import Debug exposing (todo)
 import Json.Decode
 import Model.Base as Base exposing (Base)
+import Page.List.Cmd as ListCmd
 import Page.List.Msg exposing (..)
 import Page.List.WsTypes exposing (messageDecoder)
 import Page.List.Model exposing (..)
@@ -19,14 +20,31 @@ init base dataset {filter} =
         Just dataset_ -> todo "List websocket URL over dataset " ++ dataset_
     )
 
-update : Msg -> Model -> Model
+clientUpdate : ClientMsg -> Model -> (Model, ListCmd.Cmd)
+clientUpdate listClientMsg model =
+    case listClientMsg of
+        FilterChanged str ->
+            (case str of
+                "" ->
+                    {model | filter = Nothing}
+
+                _ ->
+                    {model | filter = Just str}
+            , ListCmd.None
+            )
+
+        StartAnalysis ->
+            (model, ListCmd.StartAnalysis)
+
+
+update : Msg -> Model -> (Model, ListCmd.Cmd)
 update listMsg model =
     case listMsg of
         WsClosed ->
-            {model | loading = False}
+            ({model | loading = False}, ListCmd.None)
 
         WsMessage (Ok msg) ->
-            {model | results =
+            ({model | results =
                 model.results ++ [
                     { fnameTemplate = msg.fnameTemplate
                     , name = msg.name
@@ -34,18 +52,13 @@ update listMsg model =
                     , title = msg.title
                     , dump = PickledData.fromString msg.dump
                     }]
-            }
+            }, ListCmd.None)
 
         WsMessage (Err error) ->
-            Debug.log ("Error decoding ws message: " ++ Debug.toString error) model
+            Debug.log ("Error decoding ws message: " ++ Debug.toString error) (model, ListCmd.None)
 
-        FilterChanged str ->
-            case str of
-                "" ->
-                    {model | filter = Nothing}
-
-                _ ->
-                    {model | filter = Just str}
+        ClientMsg clientMsg ->
+            clientUpdate clientMsg model
 
 subscriptions : Model -> Sub Msg
 subscriptions model =

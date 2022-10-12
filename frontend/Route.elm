@@ -155,7 +155,8 @@ toString root route =
     let
         build : List String -> List Builder.QueryParameter -> Maybe String -> String
         build path params hash =
-            Builder.custom root (Debug.log "path" path) (Debug.log "params" params) (Debug.log "hash" hash)
+            --Builder.custom root (Debug.log "path" path) (Debug.log "params" params) (Debug.log "hash" hash)
+            Builder.custom root path params hash
     in
     case route of
         List maybeString listOptions ->
