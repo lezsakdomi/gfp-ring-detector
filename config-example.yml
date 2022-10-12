@@ -1,0 +1,6 @@
+steps:
+  - lang: py
+    code: |
+      count = len(granules)
+  - lang: R
+  - lang: imagej
