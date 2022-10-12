@@ -120,70 +120,55 @@ if __name__ == '__main__':
     import numpy as np
 
     df = pd.DataFrame(columns=['name', 'h',
-                               'fname_template',
-                               'scalar ratio', 'scalar positives', 'stat',
-                               'count', 'hit count', 'miss count', 'ratio',
+                               'count', 'positive', 'negative', 'invalid',
                                ])
 
-    h_re = re.compile('képek/(-?\d+)h/')
+    h_re = re.compile(r'.*_(-?\d+)h-\d{4}$')
 
     for target in walk():
-        print(target)
+        # print(target)
         row = {'name': target.name}
-        h_re_match = h_re.match(target.path)
+        h_re_match = h_re.match(target.name)
         if h_re_match:
             row['h'] = h_re_match.group(1)
         if target.stats:
             for k in target.stats:
-                print(k, repr(target.stats[k]))
+                # print(k, repr(target.stats[k]))
                 row[k] = target.stats[k]
         df.loc[target.path] = row
     df = df.astype({
-        'h': 'int',
-        'scalar ratio': 'float',
-        'scalar positives': 'float',
-        'stat': 'float',
-        'count': 'int',
-        'hit count': 'int',
-        'miss count': 'int',
-        'ratio': 'float',
+        'h': 'Int64',
+        'count': 'Int64',
+        'positive': 'Int64',
+        'negative': 'Int64',
+        'invalid': 'Int64',
     })
-    df['total count'] = df['hit count'] + df['miss count']
+    df['total'] = df['positive'] + df['negative']
+    df['positive ratio'] = df['positive'] / df['total']
     print(df)
+    print()
+    print(df.describe())
+    df.to_csv(os.path.join(default_dataset, 'stats.csv'), index_label="path")
 
     import matplotlib.pyplot as plt
-    # plt.figure()
-    # df.hist(by='h', column='ratio')
-    # plt.show()
-    #
-    # # fig, ax = plt.figure()
-    # # df2 = pd.DataFrame(data=[[ for row in df['count']]], columns=['-2', '-6'], index=df['count'])
-    # # df['-2'] = np.nan
-    # # df['-6'] = np.nan
-    # x = 'count'
-    # y = 'hit count'
-    # # x = 'scalar ratio'
-    # # y = 'scalar positives'
-    # df.loc[df['h'] == -2, '-2'] = df[df['h'] == -2][y]
-    # df.loc[df['h'] == -6, '-6'] = df[df['h'] == -6][y]
-    #
-    # # df.plot(kind='scatter', x=x, y=y)
-    # # plt.show()
-    #
-    # ax = df.plot(kind='scatter', x=x, y='-2', c='blue')
-    # df.plot(ax=ax, kind='scatter', x=x, y='-6', c='red')
-    # plt.show()
 
-    h_list = [-2, -6]
-    plt.boxplot([df[df['h'] == h]['ratio'] for h in h_list])
-    plt.xticks(list(range(1, len(h_list) + 1)), [f'{h}h' for h in h_list])
+    h_list = df[~df['positive ratio'].isna()]['h'].unique()
+    fil_list = [df['h'].isna() if pd.isna(h) else df['h'] == h for h in h_list]
+    lab_list = [str(h) if pd.isna(h) else f'{h}h' for h in h_list]
+    plt.boxplot([df[fil * ~df['positive ratio'].isna()]['positive ratio'] for fil in fil_list])
+    plt.xticks(list(range(1, len(lab_list) + 1)), lab_list)
+    plt.savefig(os.path.join(default_dataset, 'stats.boxplot.png'))
     plt.show()
 
-    x = 'total count'
-    y = 'ratio'
-    for h in h_list:
-        plt.scatter(x=df[df['h'] == h][x], y=df[df['h'] == h][y], label=f'{h}h')
+    x = 'total'
+    y = 'positive ratio'
+    for fil, lab in zip(fil_list, lab_list):
+        fil = fil * ~df[x].isna() * ~df[y].isna()
+        plt.scatter(x=df[fil][x], y=df[fil][y], label=lab)
     plt.xlabel(x)
     plt.ylabel(y)
     plt.legend()
+    plt.savefig(os.path.join(default_dataset, 'stats.scatter.png'))
     plt.show()
+
+    print()
