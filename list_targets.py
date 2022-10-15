@@ -63,8 +63,12 @@ class Target:
         return self.fname_template.format(c)
 
     def chread(self, c):
+        import numpy as np
         from skimage.io import imread
         img = imread(self.fname(c))
+        if len(img.shape) == 3 and img.shape[0] == 2 \
+                and np.sum(np.abs(img[1, :, :] - img[0, :, :])) == 0:
+            img = img[0, :, :]
         return img
 
 
@@ -152,22 +156,29 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    h_list = df[~df['positive ratio'].isna()]['h'].unique()
+    dataset_name = os.path.basename(default_dataset)
+
+    y = 'positive ratio'
+    h_list = df[~df[y].isna()]['h'].unique()
     fil_list = [df['h'].isna() if pd.isna(h) else df['h'] == h for h in h_list]
     lab_list = [str(h) if pd.isna(h) else f'{h}h' for h in h_list]
-    plt.boxplot([df[fil * ~df['positive ratio'].isna()]['positive ratio'] for fil in fil_list])
+    plt.boxplot([df[fil * ~df[y].isna()][y] for fil in fil_list])
     plt.xticks(list(range(1, len(lab_list) + 1)), lab_list)
+    plt.xlabel('time Relative to Puparium Formation (RPF)')
+    plt.ylabel(y)
+    plt.title(f"Comparison of different stages and {y} among\n{dataset_name} images")
     plt.savefig(os.path.join(default_dataset, 'stats.boxplot.png'))
     plt.show()
 
     x = 'total'
-    y = 'positive ratio'
+    y = y
     for fil, lab in zip(fil_list, lab_list):
         fil = fil * ~df[x].isna() * ~df[y].isna()
         plt.scatter(x=df[fil][x], y=df[fil][y], label=lab)
     plt.xlabel(x)
     plt.ylabel(y)
     plt.legend()
+    plt.title(f"Comparison of {x} and {y} among\n{dataset_name} images")
     plt.savefig(os.path.join(default_dataset, 'stats.scatter.png'))
     plt.show()
 
