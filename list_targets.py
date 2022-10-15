@@ -5,7 +5,7 @@ import re
 default_dataset = 'képek'
 
 
-folder_re = re.compile('^(?P<name>.*)\.tif_Files$')
+folder_re = re.compile('^(?P<name>.*)\.(?:zvi|tif)_Files$')
 stat_line_re = re.compile('^(?P<feature>[^:]+): (?P<value>.*)\n?$')
 
 
@@ -153,33 +153,26 @@ if __name__ == '__main__':
     print()
     print(df.describe())
     df.to_csv(os.path.join(default_dataset, 'stats.csv'), index_label="path")
+    df['stage'] = [pd.NA for _ in range(len(df))]
+    df.loc[df['h'] != 0, 'stage'] = df.loc[df['h'] != 0, 'h'].astype(str) + 'h RPF'
+    df.loc[df['h'] == 0, 'stage'] = '0h (PF)'
+    df.loc[df['h'].isna(), 'stage'] = 'N/A'
 
-    import matplotlib.pyplot as plt
+    import plotly.express as px
 
     dataset_name = os.path.basename(default_dataset)
 
-    y = 'positive ratio'
-    h_list = df[~df[y].isna()]['h'].unique()
-    fil_list = [df['h'].isna() if pd.isna(h) else df['h'] == h for h in h_list]
-    lab_list = [str(h) if pd.isna(h) else f'{h}h' for h in h_list]
-    plt.boxplot([df[fil * ~df[y].isna()][y] for fil in fil_list])
-    plt.xticks(list(range(1, len(lab_list) + 1)), lab_list)
-    plt.xlabel('time Relative to Puparium Formation (RPF)')
-    plt.ylabel(y)
-    plt.title(f"Comparison of different stages and {y} among\n{dataset_name} images")
-    plt.savefig(os.path.join(default_dataset, 'stats.boxplot.png'))
-    plt.show()
-
     x = 'total'
-    y = y
-    for fil, lab in zip(fil_list, lab_list):
-        fil = fil * ~df[x].isna() * ~df[y].isna()
-        plt.scatter(x=df[fil][x], y=df[fil][y], label=lab)
-    plt.xlabel(x)
-    plt.ylabel(y)
-    plt.legend()
-    plt.title(f"Comparison of {x} and {y} among\n{dataset_name} images")
-    plt.savefig(os.path.join(default_dataset, 'stats.scatter.png'))
-    plt.show()
+    y = 'positive ratio'
+    c = 'stage'
+    fig = px.scatter(df, x, y, c,
+                     hover_name='name', hover_data={'stage': False, 'h': True,
+                                                    'count': True, 'positive': True, 'negative': True, 'invalid': True,
+                                                    'positive ratio': ':.1%'},
+                     marginal_y='box',
+                     title=f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>{c}</i> among <b>{dataset_name}</b> images")
+    fig.update_traces(notched=False, selector=dict(type='box'))
+    fig.layout.yaxis.tickformat = ',.0%'
+    fig.write_html(os.path.join(default_dataset, 'stats.html'), auto_open=True)
 
     print()
