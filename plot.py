@@ -6,21 +6,30 @@ import urllib.parse
 from list_targets import walk
 
 
-def generate_figure(df, x='total', y='positive ratio', c='stage',
-                    group: str | None = 'dataset name',
+def generate_figure(df, x='total', y='positive ratio', c='RPF',
+                    group: str | None = None,
                     type='scatter'):
     import plotly.express as px
 
+    time_availability = ['time not available' if pd.isna(h) else 'time available' for h in df['h']]
+
     marker_symbols = None
+    symbol_sequence = None
+
+    if group is None and not h_columns.isdisjoint([x]):
+        group = time_availability
+    else:
+        marker_symbols = time_availability
+        symbol_sequence = []
+        if len(df) > 0 and df['h'].isna().sum() > 0:
+            symbol_sequence = ['x', 'circle']
+            if df['h'].isna().sum() > len(df) / 2:
+                symbol_sequence = symbol_sequence.reverse()
+
     marker_sizes = None
-    symbol_sequence = []
-    if c != 'h':
-        marker_symbols = ['time not available' if pd.isna(h) else 'time available' for h in df['h']]
+    if h_columns.isdisjoint([x, y, c, group]):
         marker_sizes = [(0 if pd.isna(h) else h) - (min(0, df['h'].min())) + 1 for h in df['h']]
-    if len(df) > 0 and df['h'].isna().sum() > 0:
-        symbol_sequence = ['x', 'circle']
-        if df['h'].isna().sum() > len(df) / 2:
-            symbol_sequence = symbol_sequence.reverse()
+
     title = f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>stage</i>s among " + (
         "datasets" if group == 'dataset name' else ", ".join(
             [f"<b>{n}</b>" for n in df['dataset name'].unique()]) + " images")
@@ -32,6 +41,7 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
                   'positive ratio': ':.1%',
                   # 'size': False, 'symbol': False,
                   }
+
     match type:
         case 'scatter':
             fig = px.scatter(df, x, y, c, marker_symbols, marker_sizes,
@@ -39,6 +49,13 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
                              custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
                              marginal_y='box',
                              facet_row=group, title=title)
+            fig.update_traces(notched=False, selector=dict(type='box'))
+            fig.layout.yaxis.tickformat = ',.0%'
+
+        case 'strip':
+            fig = px.strip(df, x, y, c,
+                           custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
+                           facet_row=group, title=title)
             fig.update_traces(notched=False, selector=dict(type='box'))
             fig.layout.yaxis.tickformat = ',.0%'
 
@@ -57,7 +74,7 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
             fig.layout.yaxis.tickformat = ',.0%'
 
         case 'scatter_3d':
-            fig = px.scatter_3d(df, x, y, 'h', c,
+            fig = px.scatter_3d(df, x, y, 'RPF', c,
                                 custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
                                 title=title)
 
@@ -69,12 +86,15 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
 
 _df = None
 
+h_columns = {'h', 'stage', 'RPF'}
+
 
 def get_df():
     global _df
     if _df is None:
         _df = pd.DataFrame(
-            columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation', 'csv path',
+            columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation',
+                     'csv path',
                      'count', 'positive', 'negative', 'invalid',
                      ])
 
@@ -114,6 +134,7 @@ def get_df():
         _df.loc[_df['h'] != 0, 'stage'] = _df.loc[_df['h'] != 0, 'h'].astype(str) + 'h RPF'
         _df.loc[_df['h'] == 0, 'stage'] = '0h (PF)'
         _df.loc[_df['h'].isna(), 'stage'] = 'N/A'
+        _df['RPF'] = _df['h'].fillna(0)
 
     return _df
 
@@ -130,25 +151,41 @@ def get_app():
         import diskcache
         from dash.long_callback import DiskcacheLongCallbackManager
 
-        df = get_df()
-
         _app = Dash(long_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()))
         _app.layout = html.Div([
             dcc.Dropdown(id='dropdown',
-                         options=df['dataset name'].unique(),
+                         options=get_df()['dataset name'].unique(),
                          multi=True),
+            html.Div([
+                "Pupae stage visualization:",
+                dcc.RadioItems(id='radio',
+                               options=["boxplot X axis", "scatter X axis", "color", "size (later is bigger)"],
+                               value="size (later is bigger)"),
+            ], id='radioContainer'),
             dcc.Graph(id='graph', clear_on_unhover=True),
             html.Pre(id='debug'),
             html.Div(id='preview'),
         ])
 
         @_app.callback(Output('graph', 'figure'),
-                       [Input('dropdown', 'value')])
-        def update(dataset_names):
-            if not dataset_names:
-                fig = generate_figure(df[~df['h'].isna()], x='h', c=None, type='box')
+                       [Input('dropdown', 'value'), Input('radio', 'value')])
+        def update(dataset_names, rendering_style):
+            df = get_df()
+            if dataset_names:
+                df = df[df['dataset name'].isin(dataset_names)]
+
+            if not dataset_names or rendering_style == 'boxplot X axis':
+                df = df[~df['h'].isna()]
+                fig = generate_figure(df, x='RPF', c=None, group='dataset name', type='box')
             else:
-                fig = generate_figure(df[df['dataset name'].isin(dataset_names)], group=None, c='dataset name')
+                match rendering_style:
+                    case 'size (later is bigger)':
+                        fig = generate_figure(df, c='dataset name')
+                    case 'color':
+                        fig = generate_figure(df, c='RPF')
+                    case 'scatter X axis':
+                        fig = generate_figure(df, x='RPF', c='dataset name',
+                                              type='strip')
             return fig
 
         @_app.callback(Output('graph', 'style'),
@@ -159,6 +196,14 @@ def get_app():
                 return {'height': "450px"}
             else:
                 return {'height': "450px"}
+
+        @_app.callback(Output('radioContainer', 'style'),
+                       [Input('dropdown', 'value')])
+        def update(dataset_names):
+            if not dataset_names:
+                return {'display': "none"}
+            else:
+                return {'display': "initial"}
 
         @_app.callback(Output('debug', 'children'),
                        [Input('graph', 'selectedData')])
@@ -172,7 +217,8 @@ def get_app():
         @_app.callback(Output('preview', 'children'),
                        Input('graph', 'clickData'),
                        background=True, interval=500,
-                       progress=[Output('preview', 'children')], progress_default=[html.Div([html.H3(), html.Progress()])])
+                       progress=[Output('preview', 'children')],
+                       progress_default=[html.Div([html.H3(), html.Progress()])])
         def update(set_progress, click_data):
             result = []
 
