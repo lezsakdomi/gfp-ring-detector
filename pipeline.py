@@ -36,7 +36,7 @@ class RingDetector(Pipeline):
     def load(self, target):
         from toml import load
         from os import path
-        dataset_options = load(path.join(target.dataset, 'dataset.toml'))
+        dataset_options = target.dataset_options
         DsRed = target.chread(dataset_options['channels']['DsRed'])
         GFP = target.chread(dataset_options['channels']['GFP'])
         DAPI = target.chread(dataset_options['channels']['DAPI'])
