@@ -2,6 +2,8 @@ import json
 import os
 import re
 
+import toml
+
 
 default_dataset = 'képek'
 
@@ -43,6 +45,7 @@ class Target:
         self.dataset = dataset or self.path
         while True:
             if os.path.exists(os.path.join(self.dataset, 'dataset.toml')):
+                self.dataset_options = toml.load(os.path.join(self.dataset, 'dataset.toml'))
                 break
             elif os.path.dirname(self.dataset) == self.dataset:  # already in root
                 raise TargetFormatError("No dataset.toml")
@@ -76,9 +79,9 @@ class Target:
 
 
 class SliceTarget(Target):
-    def __init__(self, path, z=0):
+    def __init__(self, path, z=0, dataset=None):
         self.z = z
-        super().__init__(path)
+        super().__init__(path, dataset=dataset)
 
     def __str__(self):
         return f"Image {self.name}#{self.z} ({self.path}, z={self.z})"
@@ -121,7 +124,7 @@ def walk(dataset=None):
             i = 0
             while True:
                 try:
-                    yield SliceTarget(path, i)
+                    yield SliceTarget(path, i, dataset=dataset)
                     i += 1
                 except TargetFormatError:
                     break
