@@ -77,6 +77,10 @@ class Target:
             img = img[0, :, :]
         return img
 
+    @property
+    def csv_path(self):
+        return os.path.splitext(self.stats_path)[0] + '.csv'
+
 
 class SliceTarget(Target):
     def __init__(self, path, z=0, dataset=None):

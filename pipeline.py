@@ -140,6 +140,24 @@ class RingDetector(Pipeline):
         open(target.stats_path, 'w').writelines(stat_text)
         return target.stats_path
 
+    @Step.of('csv_path')
+    def save_csv_stats(self, target, positive_coordinates, neutral_coordinates, negative_coordinates):
+        import pandas as pd
+
+        def to_df(data):
+            coordinates, type_str = data
+            df = pd.DataFrame(coordinates, columns=['y', 'x', 'diameter'])
+            df['class'] = type_str
+            return df
+
+        pd.concat(list(map(to_df, [
+            (positive_coordinates, 'positive'),
+            (neutral_coordinates, 'neutral'),
+            (negative_coordinates, 'negative'),
+        ])), ignore_index=True).to_csv(target.csv_path)
+
+        return target.csv_path
+
     def _hook(self, hook, *args, **kwargs):
         if self._interactive:
             self._add_to_img5(*args, **kwargs)
