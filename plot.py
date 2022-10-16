@@ -13,9 +13,14 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
 
     marker_symbols = None
     marker_sizes = None
+    symbol_sequence = []
     if c != 'h':
         marker_symbols = ['time not available' if pd.isna(h) else 'time available' for h in df['h']]
         marker_sizes = [(0 if pd.isna(h) else h) - (min(0, df['h'].min())) + 1 for h in df['h']]
+    if len(df) > 0:
+        symbol_sequence = ['x', 'circle']
+        if df['h'].isna().sum() > len(df) / 2:
+            symbol_sequence = symbol_sequence.reverse()
     title = f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>stage</i>s among " + (
         "datasets" if facet_row == 'dataset name' else ", ".join(
             [f"<b>{n}</b>" for n in df['dataset name'].unique()]) + " images")
@@ -30,6 +35,7 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
     match type:
         case 'scatter':
             fig = px.scatter(df, x, y, c, marker_symbols, marker_sizes,
+                             symbol_sequence=symbol_sequence,
                              custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
                              marginal_y='box',
                              facet_row=facet_row, title=title)
