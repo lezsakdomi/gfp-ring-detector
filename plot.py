@@ -7,7 +7,7 @@ from list_targets import walk
 
 
 def generate_figure(df, x='total', y='positive ratio', c='stage',
-                    facet_row: str | None = 'dataset name',
+                    group: str | None = 'dataset name',
                     type='scatter'):
     import plotly.express as px
 
@@ -17,16 +17,16 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
     if c != 'h':
         marker_symbols = ['time not available' if pd.isna(h) else 'time available' for h in df['h']]
         marker_sizes = [(0 if pd.isna(h) else h) - (min(0, df['h'].min())) + 1 for h in df['h']]
-    if len(df) > 0:
+    if len(df) > 0 and df['h'].isna().sum() > 0:
         symbol_sequence = ['x', 'circle']
         if df['h'].isna().sum() > len(df) / 2:
             symbol_sequence = symbol_sequence.reverse()
     title = f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>stage</i>s among " + (
-        "datasets" if facet_row == 'dataset name' else ", ".join(
+        "datasets" if group == 'dataset name' else ", ".join(
             [f"<b>{n}</b>" for n in df['dataset name'].unique()]) + " images")
-    custom_data = ['dump', 'fname_template', 'string representation']
+    custom_data = ['dump', 'fname_template', 'string representation', 'csv path']
     hover_name = 'name'
-    hover_data = {'stage': True, 'h': False,
+    hover_data = {'stage': True,
                   'count': True, 'positive': True, 'negative': True,
                   'invalid': True,
                   'positive ratio': ':.1%',
@@ -38,8 +38,22 @@ def generate_figure(df, x='total', y='positive ratio', c='stage',
                              symbol_sequence=symbol_sequence,
                              custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
                              marginal_y='box',
-                             facet_row=facet_row, title=title)
+                             facet_row=group, title=title)
             fig.update_traces(notched=False, selector=dict(type='box'))
+            fig.layout.yaxis.tickformat = ',.0%'
+
+        case 'box':
+            fig = px.box(df, x, y, c,
+                         custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
+                         facet_col=group, title=title)
+            fig.update_layout(legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ))
+            fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[1]))
             fig.layout.yaxis.tickformat = ',.0%'
 
         case 'scatter_3d':
@@ -60,7 +74,7 @@ def get_df():
     global _df
     if _df is None:
         _df = pd.DataFrame(
-            columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation',
+            columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation', 'csv path',
                      'count', 'positive', 'negative', 'invalid',
                      ])
 
@@ -71,6 +85,7 @@ def get_df():
             row = {
                 'dump': codecs.encode(pickle.dumps(target), 'base64').decode(),
                 'fname_template': target.fname_template,
+                'csv path': target.csv_path,
                 'name': target.name,
                 'dataset': target.dataset,
                 'dataset name': os.path.basename(target.dataset),
@@ -109,13 +124,15 @@ _app = None
 def get_app():
     global _app
 
-    import dash
-    from dash import Dash, dcc, html, Input, Output
-
     if _app is None:
+        import dash
+        from dash import Dash, dcc, html, Input, Output
+        import diskcache
+        from dash.long_callback import DiskcacheLongCallbackManager
+
         df = get_df()
 
-        _app = Dash()
+        _app = Dash(long_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()))
         _app.layout = html.Div([
             dcc.Dropdown(id='dropdown',
                          options=df['dataset name'].unique(),
@@ -123,34 +140,23 @@ def get_app():
             dcc.Graph(id='graph', clear_on_unhover=True),
             html.Pre(id='debug'),
             html.Div(id='preview'),
-            dcc.Graph(id='graph2', style={'height': '100vh'}),
-            html.Pre(id='debug2'),
-            html.Div(id='preview2'),
         ])
 
         @_app.callback(Output('graph', 'figure'),
                        [Input('dropdown', 'value')])
         def update(dataset_names):
             if not dataset_names:
-                fig = generate_figure(df[~df['h'].isna()], c='h')
+                fig = generate_figure(df[~df['h'].isna()], x='h', c=None, type='box')
             else:
-                fig = generate_figure(df[df['dataset name'].isin(dataset_names)], facet_row=None, c='dataset name')
-            return fig
-
-        @_app.callback(Output('graph2', 'figure'),
-                       [Input('dropdown', 'value')])
-        def update(dataset_names):
-            if not dataset_names:
-                fig = generate_figure(df[~df['h'].isna()], c='dataset name', type='scatter_3d')
-            else:
-                fig = None
+                fig = generate_figure(df[df['dataset name'].isin(dataset_names)], group=None, c='dataset name')
             return fig
 
         @_app.callback(Output('graph', 'style'),
                        [Input('dropdown', 'value')])
         def update(dataset_names):
             if not dataset_names:
-                return {'height': f"calc({len(df['dataset name'].unique())} * 450px / 2)"}
+                # return {'height': f"calc({len(df['dataset name'].unique())} * 450px / 2)"}
+                return {'height': "450px"}
             else:
                 return {'height': "450px"}
 
@@ -163,11 +169,16 @@ def get_app():
             print(selected_data)
             return ["\n".join([data['hovertext'] for data in selected_data['points']])]
 
-        def click_handler(click_data):
-            if click_data is None:
-                raise dash.exceptions.PreventUpdate()
-
+        @_app.callback(Output('preview', 'children'),
+                       Input('graph', 'clickData'),
+                       background=True, interval=500,
+                       progress=[Output('preview', 'children')], progress_default=[html.Div([html.H3(), html.Progress()])])
+        def update(set_progress, click_data):
             result = []
+
+            if click_data is None:
+                return result
+
             try:
                 from skimage.util import img_as_ubyte
                 from skimage.io import imread
@@ -175,6 +186,7 @@ def get_app():
                 import imageio
                 import base64
                 import numpy as np
+                import plotly.express as px
 
                 def to_data_url(image, fmt='png'):
                     image = img_as_ubyte(image)
@@ -189,13 +201,45 @@ def get_app():
                 if len(click_data['points']) == 1:
                     hover_text: str = click_data['points'][0]['hovertext']
                     fname_template: str = click_data['points'][0]['customdata'][1]
+                    csv_path: str = click_data['points'][0]['customdata'][3]
+
+                    set_progress([
+                        html.Div([
+                            html.H3([hover_text]),
+                            html.Div([
+                                html.Progress(),
+                                " ",
+                                "Loading image...",
+                            ]),
+                        ])
+                    ])
+
                     img = np.dstack([
                         imread(fname_template.format(0)),
                         imread(fname_template.format(1)),
                         imread(fname_template.format(2)),
                     ])
                     result.append(html.H3([hover_text]))
-                    result.append(html.Img(src=to_data_url(img)))
+
+                    fig = px.imshow(img)
+                    if os.path.exists(csv_path):
+                        set_progress([
+                            html.Div([
+                                html.H3([hover_text]),
+                                html.Div([
+                                    html.Progress(),
+                                    " ",
+                                    "Loading points...",
+                                ]),
+                            ])
+                        ])
+
+                        import pandas as pd
+                        scatter = px.scatter(pd.read_csv(csv_path),
+                                             'x', 'y', 'class')
+                        for trace in scatter.data:
+                            fig.add_trace(trace)
+                    result.append(dcc.Graph(figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
             except ImportError as e:
                 result.append(html.P([
                     "Error: Failed to load preview image",
@@ -211,31 +255,6 @@ def get_app():
                 ]))
 
             return result
-
-        @_app.callback(Output('preview', 'children'),
-                       Input('graph', 'clickData'))
-        def update(click_data):
-            return click_handler(click_data)
-
-        @_app.callback(Output('preview2', 'children'),
-                       Input('graph2', 'clickData'))
-        def update(click_data):
-            return click_handler(click_data)
-
-        # _app.clientside_callback("""
-        #     function update(clickData) {
-        #         console.log(clickData);
-        #         if (clickData && clickData['points'].length == 1) {
-        #             targetDump = clickData.points[0].customdata[0];
-        #             window.open("http://localhost:8080/analyze/"
-        #                     + encodeURIComponent(targetDump),
-        #                     "_blank")
-        #         }
-        #         return [];
-        #     }
-        # """,
-        #                          Output('debug2', 'children'),
-        #                          Input('graph', 'clickData'))
 
     return _app
 
