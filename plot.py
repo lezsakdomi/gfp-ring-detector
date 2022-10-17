@@ -195,7 +195,7 @@ def get_app():
                 # return {'height': f"calc({len(df['dataset name'].unique())} * 450px / 2)"}
                 return {'height': "450px"}
             else:
-                return {'height': "450px"}
+                return {'height': "600px"}
 
         @_app.callback(Output('radioContainer', 'style'),
                        [Input('dropdown', 'value')])
