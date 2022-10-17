@@ -1,7 +1,7 @@
 import asyncio
 import webbrowser
 
-from server import serve
+from server import app
 
 
 if __name__ == '__main__':
@@ -94,4 +94,4 @@ if __name__ == '__main__':
         if exists(toml_file):
             break
     webbrowser.open("http://localhost:8080/")
-    asyncio.run(serve())
+    app.run('localhost', 8080)
