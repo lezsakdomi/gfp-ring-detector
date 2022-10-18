@@ -17,7 +17,7 @@ toString base =
     host ++ base.path
 
 getWsUrl base path = "ws" ++ (if base.secure then "s" else "") ++ "://"
-    ++ toString base ++ path
+    ++ toString base ++ "/api" ++ path
 
 getImgUrl base path = "http" ++ (if base.secure then "s" else "") ++ "://"
     ++ toString base ++ path

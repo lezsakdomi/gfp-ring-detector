@@ -4,10 +4,12 @@ import html
 import mimetypes
 import os
 import pickle
+import sys
 import traceback
 import warnings
 
 import numpy as np
+import sanic.response
 import websockets
 from sanic import Sanic, Request, HTTPResponse
 import asyncio
@@ -24,7 +26,7 @@ import inspect
 app = Sanic("gfp-ring-detector")
 
 
-@app.websocket('/analyze/<target_str>')
+@app.websocket('/api/analyze/<target_str>')
 async def analyze(request, ws, target_str):
     msgq = Queue()
 
@@ -115,7 +117,7 @@ async def analyze(request, ws, target_str):
     if '{}' in target_str:
         target = CustomTarget(target_str)
     else:
-        target = pickle.loads(codecs.decode(target_str.encode(), "base64"))
+        target = pickle.loads(base64.urlsafe_b64decode(target_str))
     ring_detector = RingDetector(target, interactive=True)
     thread = Thread(target=ring_detector.run, kwargs={'hook': cb})
     mainloop = asyncio.get_running_loop()
@@ -138,8 +140,8 @@ async def analyze(request, ws, target_str):
             print(msg)
 
 
-@app.websocket('/list')
-async def list(request, ws):
+@app.websocket('/api/list')
+async def list_targets(request, ws):
     from list_targets import walk
     from json import dumps
 
@@ -150,7 +152,7 @@ async def list(request, ws):
             'path': image.path,
             'title': str(image),
             'stats': image.stats,
-            'dump': codecs.encode(pickle.dumps(image), 'base64').decode(),
+            'dump': base64.urlsafe_b64encode(pickle.dumps(image)).decode(),
         })
         await ws.send(json)
 
@@ -168,6 +170,11 @@ async def elm_reload_proxy(request, ws):
             pass
         else:
             raise
+
+
+@app.get('/dash')
+def dash_redirect_handler(request):
+    return sanic.response.redirect(app.url_for(dash_handler.__name__, path_info=''))
 
 
 @app.route('/dash/<path_info:path>', methods=['GET', 'POST'])
@@ -253,6 +260,7 @@ def dash_handler(request: Request, path_info):
     environ['wsgi.url_scheme'] = 'http'
     environ['wsgi.input'] = BytesIO(request.body) if request.body is not None and len(request.body) > 0\
         else BytesIO(b'')
+    environ['wsgi.errors'] = sys.stderr
     try:
         wsgi_return = wsgi_app(environ, _start_response)
     except Exception as e:
@@ -276,11 +284,17 @@ def dash_handler(request: Request, path_info):
         http_response.body = bytes(body_bytes)
     return http_response
 
-app.static("/", os.path.dirname(__file__) + "/frontend", name='frontend')
+
+app.static("/assets", os.path.dirname(__file__) + "/frontend", name='assets')
+
 
 app.static("/képek", ".", name='data')
 
-app.static("/", "frontend/Main.html", name='frontend_index_html')
+
+@app.get('<path:path>')
+async def fallback_get_handler(request, path):
+    route, handler, kwargs = app.router.get(app.url_for('assets', filename='Main.html'), 'GET', request.host)
+    return await handler(request, **kwargs)
 
 
 async def serve(host="0.0.0.0", port=8080):
