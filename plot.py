@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import urllib.parse
@@ -9,6 +8,7 @@ from list_targets import walk
 def generate_figure(df, x='total', y='positive ratio', c='RPF',
                     group: str | None = None,
                     type='scatter'):
+    import pandas as pd
     import plotly.express as px
 
     time_availability = ['time not available' if pd.isna(h) else 'time available' for h in df['h']]
@@ -48,6 +48,7 @@ def generate_figure(df, x='total', y='positive ratio', c='RPF',
                              symbol_sequence=symbol_sequence,
                              custom_data=custom_data, hover_name=hover_name, hover_data=hover_data,
                              marginal_y='box',
+                             marginal_x=None if group else 'histogram',
                              facet_row=group, title=title)
             fig.update_traces(notched=False, selector=dict(type='box'))
             fig.layout.yaxis.tickformat = ',.0%'
@@ -92,6 +93,10 @@ h_columns = {'h', 'stage', 'RPF'}
 def get_df():
     global _df
     if _df is None:
+        import pandas as pd
+        import pickle
+        import codecs
+
         _df = pd.DataFrame(
             columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation',
                      'csv path',
@@ -151,7 +156,8 @@ def get_app():
         import diskcache
         from dash.long_callback import DiskcacheLongCallbackManager
 
-        _app = Dash(long_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()))
+        _app = Dash(url_base_pathname='/dash/',
+                    background_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()))
         _app.layout = html.Div([
             dcc.Dropdown(id='dropdown',
                          options=get_df()['dataset name'].unique(),
@@ -296,7 +302,7 @@ def get_app():
                 dump, fname_template, string_repr = point['customdata'][:3]
                 result.append(html.Div([
                     html.A([string_repr],
-                           href="http://localhost:8080/analyze/" + urllib.parse.quote(dump),
+                           href="/analyze/" + urllib.parse.quote(dump),
                            target='_blank')
                 ]))
 
@@ -308,10 +314,6 @@ def get_app():
 folder_of_datasets = "C:\\Users\\led\\OneDrive - elte.hu\\képek\\BEN-Jra-TNF pathway"
 
 if __name__ == '__main__':
-    import pandas as pd
-    import pickle
-    import codecs
-
     df = get_df()
     print(df)
     print()

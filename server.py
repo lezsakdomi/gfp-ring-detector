@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 import websockets
-from sanic import Sanic
+from sanic import Sanic, Request, HTTPResponse
 import asyncio
 from sanic.response import json
 
@@ -168,6 +168,113 @@ async def elm_reload_proxy(request, ws):
             pass
         else:
             raise
+
+
+@app.route('/dash/<path_info:path>', methods=['GET', 'POST'])
+def dash_handler(request: Request, path_info):
+    import plot
+    from io import BytesIO
+
+    wsgi_app = plot.get_app().server.wsgi_app
+
+    http_response = None
+    body_bytes = bytearray()
+
+    def _start_response(status, headers, *args, **kwargs):
+        """The start_response callback as required by the wsgi spec. This sets up a response including the
+        status code and the headers, but doesn't write a body."""
+        nonlocal http_response
+        nonlocal body_bytes
+        if isinstance(status, int):
+            code = status
+        elif isinstance(status, str):
+            code = int(status.split(" ")[0])
+        else:
+            raise RuntimeError("status cannot be turned into a code.")
+        sanic_headers = dict(headers)
+        response_constructor_args = {'status': code,  'headers': sanic_headers}
+        if 'content_type' in kwargs:
+            response_constructor_args['content_type'] = kwargs['content_type']
+        elif 'Content-Type' in sanic_headers:
+            response_constructor_args['content_type'] = str(sanic_headers['Content-Type']).split(";")[0].strip()
+        http_response = HTTPResponse(**response_constructor_args)
+
+        def _write_body(body_data):
+            """This doesn't seem to be used, but it is part of the wsgi spec, so need to have it."""
+            nonlocal body_bytes
+            nonlocal http_response
+            if isinstance(body_data, bytes):
+                pass
+            else:
+                try:
+                    # Try to encode it regularly
+                    body_data = body_data.encode()
+                except AttributeError:
+                    # Convert it to a str if you can't
+                    body_data = str(body_data).encode()
+            body_bytes.extend(body_data)
+        return _write_body
+
+    environ = {}
+    environ['SCRIPT_NAME'] = ''
+    environ['PATH_INFO'] = request.path
+    if request.host is not None:
+        host = request.host
+    elif 'host' in request.headers:
+        host = request.headers['host']
+    else:
+        host = 'localhost:80'
+    if 'content-type' in request.headers:
+        content_type = request.headers['content-type']
+    else:
+        content_type = 'text/plain'
+    environ['CONTENT_TYPE'] = content_type
+    if 'content-length' in request.headers:
+        content_length = request.headers['content-length']
+        environ['CONTENT_LENGTH'] = content_length
+
+    split_host = host.split(':', 1)
+    host_has_port = len(split_host) > 1
+    server_name = split_host[0]
+    if request.port is not None:
+        server_port = str(request.port)
+    elif host_has_port:
+        server_port = split_host[1]
+    else:
+        server_port = '80'
+    if (not host_has_port) and (server_port != '80'):
+        host = ":".join((host, server_port))
+    environ['SERVER_PORT'] = server_port
+    environ['SERVER_NAME'] = server_name
+    environ['SERVER_PROTOCOL'] = 'HTTP/1.1' if request.version == "1.1" else 'HTTP/1.0'
+    environ['HTTP_HOST'] = host
+    environ['QUERY_STRING'] = request.query_string or ''
+    environ['REQUEST_METHOD'] = request.method
+    environ['wsgi.url_scheme'] = 'http'
+    environ['wsgi.input'] = BytesIO(request.body) if request.body is not None and len(request.body) > 0\
+        else BytesIO(b'')
+    try:
+        wsgi_return = wsgi_app(environ, _start_response)
+    except Exception as e:
+        print(e)
+        raise e
+    if http_response is None:
+        http_response = HTTPResponse("WSGI call error.", 500)
+    else:
+        for body_part in wsgi_return:
+            if body_part is not None:
+                if isinstance(body_part, bytes):
+                    pass
+                else:
+                    try:
+                        # Try to encode it regularly
+                        body_part = body_part.encode()
+                    except AttributeError:
+                        # Convert it to a str if you can't
+                        body_part = str(body_part).encode()
+                body_bytes.extend(body_part)
+        http_response.body = bytes(body_bytes)
+    return http_response
 
 app.static("/", os.path.dirname(__file__) + "/frontend", name='frontend')
 
