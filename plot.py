@@ -1,6 +1,5 @@
 import os
 import re
-import urllib.parse
 
 from list_targets import walk
 
@@ -107,8 +106,10 @@ def get_df():
 
         for target in walk([entry.path for entry in os.scandir(folder_of_datasets)]):
             # print(target)
+            from base64 import urlsafe_b64encode
+
             row = {
-                'dump': codecs.encode(pickle.dumps(target), 'base64').decode(),
+                'dump': urlsafe_b64encode(pickle.dumps(target)).decode(),
                 'fname_template': target.fname_template,
                 'csv path': target.csv_path,
                 'name': target.name,
@@ -302,7 +303,7 @@ def get_app():
                 dump, fname_template, string_repr = point['customdata'][:3]
                 result.append(html.Div([
                     html.A([string_repr],
-                           href="/analyze/" + urllib.parse.quote(dump),
+                           href="/analyze/" + dump,
                            target='_blank')
                 ]))
 

@@ -178,7 +178,7 @@ toString root route =
                     , case maybeTarget of
                         Nothing -> Nothing
                         Just (FnameTemplate tpl) -> Just <| Url.percentEncode tpl
-                        Just (EncodedTarget {data}) -> Just <| Url.percentEncode data
+                        Just (EncodedTarget {data}) -> Just <| data
                     ]
             in
             build (List.filterMap identity path) [] Nothing
