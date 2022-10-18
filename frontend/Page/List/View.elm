@@ -49,11 +49,15 @@ render {filter, results, loading} currentAnalysis =
             , value (Maybe.withDefault "" filter)
             , onInput FilterChanged
             ] []
-        , span [] <| [ text info ] ++ if not loading && Maybe.isNothing currentAnalysis
-            then
-                [ text " ", button [ onClick StartAnalysis ] [ text "▶️ Start analysis" ] ]
-            else
-                []
+        , span [] <|
+            [ text info
+            , text " "
+            , a [ href "/dash" ] [ button [] [ text "📊 Open dashboard" ] ]
+            ] ++ if not loading && Maybe.isNothing currentAnalysis
+                then
+                    [ text " ", button [ onClick StartAnalysis ] [ text "▶️ Start analysis on this dataset" ] ]
+                else
+                    []
         , ul [id "ul"] <|
             List.indexedMap (\index {path, dump, title} ->
                 li [] [
