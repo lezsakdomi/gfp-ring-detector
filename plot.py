@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 
 from list_targets import walk
 
@@ -92,6 +93,7 @@ h_columns = {'h', 'stage', 'RPF'}
 def get_df():
     global _df
     if _df is None:
+        print("Loading statistical data", file=sys.stderr)
         import pandas as pd
         import pickle
         import codecs
@@ -152,6 +154,8 @@ def get_app():
     global _app
 
     if _app is None:
+        print("Loading dash app", file=sys.stderr)
+
         import dash
         from dash import Dash, dcc, html, Input, Output
         import diskcache
@@ -292,7 +296,9 @@ def get_app():
                                              'x', 'y', 'class')
                         for trace in scatter.data:
                             fig.add_trace(trace)
-                    result.append(dcc.Graph(figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
+                    result.append(dcc.Graph(id='image', figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
+                    result.append(html.Pre(id='imageDebug'))
+                    result.append(dcc.Graph(id='imageSelectionGraph'))
             except ImportError as e:
                 result.append(html.P([
                     "Error: Failed to load preview image",
@@ -308,6 +314,43 @@ def get_app():
                 ]))
 
             return result
+
+        _app.clientside_callback("""
+            function handleClick(graphClickData, imageFigure, imageClickData) {
+                if (dash_clientside.callback_context.triggered.length === 1) {
+                    switch (dash_clientside.callback_context.triggered[0].prop_id) {
+                        case 'image.clickData': {
+                            const {customdata: [encodedTarget]} = graphClickData.points[0];
+                            if (imageClickData.points.length === 1) {
+                                const {x, y} = imageClickData.points[0];
+                                window.open(`/analyze/${encodedTarget}?x=${x}&y=${y}`);
+                            }
+                            return [];
+                        }
+                    }
+                }
+            }        
+        """, Output('imageDebug', 'children'), Input('graph', 'clickData'), Input('image', 'figure'), Input('image', 'clickData'))
+
+        @_app.callback(Output('imageSelectionGraph', 'figure'), Input('image', 'figure'), Input('image', 'selectedData'))
+        def update(image, selected_data):
+            import plotly.express as px
+            import pandas as pd
+            if selected_data is None:
+                df = pd.DataFrame([
+                    {'class': trace['name'], 'count': len(trace['x'])}
+                    for trace in image['data']
+                    if trace['type'] != 'image'
+                ])
+            else:
+                df = pd.DataFrame(selected_data['points'])
+                df['class'] = [image['data'][curveNumber]['name'] for curveNumber in df['curveNumber']]
+                df = df[['class', 'pointNumber']].groupby('class').aggregate('count')
+                df.reset_index(inplace=True)
+                df = df.rename(columns={'index': 'class', 'pointNumber': 'count'})
+            fig = px.pie(df, names='class', values='count')
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            return fig
 
     return _app
 
