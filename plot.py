@@ -1,6 +1,9 @@
 import os
+import pickle
 import re
 import sys
+
+import toml
 
 from list_targets import walk
 
@@ -33,7 +36,7 @@ def generate_figure(df, x='total', y='positive ratio', c='RPF',
     title = f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>stage</i>s among " + (
         "datasets" if group == 'dataset name' else ", ".join(
             [f"<b>{n}</b>" for n in df['dataset name'].unique()]) + " images")
-    custom_data = ['dump', 'fname_template', 'string representation', 'csv path']
+    custom_data = ['dump', 'fname_template', 'string representation', 'csv path', 'stats path']
     hover_name = 'name'
     hover_data = {'stage': True,
                   'count': True, 'positive': True, 'negative': True,
@@ -89,6 +92,34 @@ _df = None
 
 h_columns = {'h', 'stage', 'RPF'}
 
+_config = None
+
+
+def get_config():
+    global _config
+
+    if _config is not None:
+        return _config
+
+    print("Loading configuration", file=sys.stderr)
+
+    from list_targets import default_dataset
+
+    _config = toml.load('config.toml')
+
+    if _config['datasets'] is None:
+        _config['datasets'] = default_dataset
+
+    if isinstance(_config['datasets'], str):
+        if 'output' not in _config:
+            _config['output'] = _config['datasets']
+        _config['datasets'] = [entry.path for entry in os.scandir(_config['datasets'])]
+    else:
+        if 'output' not in _config:
+            _config['output'] = default_dataset
+
+    return _config
+
 
 def get_df():
     global _df
@@ -100,13 +131,13 @@ def get_df():
 
         _df = pd.DataFrame(
             columns=['dataset', 'dataset name', 'fname_template', 'dump', 'name', 'h', 'string representation',
-                     'csv path',
+                     'csv path', 'stats path',
                      'count', 'positive', 'negative', 'invalid',
                      ])
 
         h_re = re.compile(r'.*_(-?\d+)h[-_]\d{4}$')
 
-        for target in walk([entry.path for entry in os.scandir(folder_of_datasets)]):
+        for target in walk(get_config()['datasets']):
             # print(target)
             from base64 import urlsafe_b64encode
 
@@ -114,6 +145,7 @@ def get_df():
                 'dump': urlsafe_b64encode(pickle.dumps(target)).decode(),
                 'fname_template': target.fname_template,
                 'csv path': target.csv_path,
+                'stats path': target.stats_path,
                 'name': target.name,
                 'dataset': target.dataset,
                 'dataset name': os.path.basename(target.dataset),
@@ -167,6 +199,7 @@ def get_app():
             dcc.Dropdown(id='dropdown',
                          options=get_df()['dataset name'].unique(),
                          multi=True),
+            html.Button(["🔃 Reload data"], 'reload'),
             html.Div([
                 "Pupae stage visualization:",
                 dcc.RadioItems(id='radio',
@@ -178,9 +211,19 @@ def get_app():
             html.Div(id='preview'),
         ])
 
+        @_app.callback(Output('dropdown', 'options'),
+                       Input('reload', 'n_clicks'))
+        def update(n_clicks):
+            global _df
+
+            if n_clicks is not None:
+                _df = None
+
+            return get_df()['dataset name'].unique()
+
         @_app.callback(Output('graph', 'figure'),
-                       [Input('dropdown', 'value'), Input('radio', 'value')])
-        def update(dataset_names, rendering_style):
+                       [Input('dropdown', 'value'), Input('radio', 'value'), Input('dropdown', 'options')])
+        def update(dataset_names, rendering_style, dropdown_options):
             df = get_df()
             if dataset_names:
                 df = df[df['dataset name'].isin(dataset_names)]
@@ -222,18 +265,29 @@ def get_app():
             if selected_data is None:
                 raise dash.exceptions.PreventUpdate()
 
-            print(selected_data)
-            return ["\n".join([data['hovertext'] for data in selected_data['points']])]
+            return [
+                "\n".join([data['hovertext'] for data in selected_data['points']]),
+                html.Br(), dcc.ConfirmDialogProvider(
+                    html.Button("Remove statistics of selected images"),
+                    id='excludeSelectionDangerProvider',
+                    message=f"Danger! Removing statistics is destructive, "
+                            f"selected data points will be lost after reloading the data.\n"
+                            f"If you ever want to see the selected {len(selected_data['points'])} images again, "
+                            f"you have to re-run analysis.\n"
+                            f"Did you take note of the images to be removed?"
+                ), html.Span(id='excludeSelectionDebug')
+            ]
 
         @_app.callback(Output('preview', 'children'),
                        Input('graph', 'clickData'),
                        background=True, interval=500,
                        progress=[Output('preview', 'children')],
-                       progress_default=[html.Div([html.H3(), html.Progress()])])
+                       progress_default=[html.Div([html.H3(), "Loading just started, or some error happened"])])
         def update(set_progress, click_data):
             result = []
 
             if click_data is None:
+                result.append(html.Span())
                 return result
 
             try:
@@ -257,8 +311,10 @@ def get_app():
                     pass
                 if len(click_data['points']) == 1:
                     hover_text: str = click_data['points'][0]['hovertext']
+                    dump: str = click_data['points'][0]['customdata'][0]
                     fname_template: str = click_data['points'][0]['customdata'][1]
                     csv_path: str = click_data['points'][0]['customdata'][3]
+                    stats_path: str = click_data['points'][0]['customdata'][4]
 
                     set_progress([
                         html.Div([
@@ -276,7 +332,19 @@ def get_app():
                         imread(fname_template.format(1)),
                         imread(fname_template.format(2)),
                     ])
-                    result.append(html.H3([hover_text]))
+                    result.append(html.H3([
+                        hover_text,
+                        " ", dcc.ConfirmDialogProvider(
+                            html.Button("Remove statistics of this image"),
+                            id='excludeImageDangerProvider',
+                            message=f"Danger! Removing statistics is destructive.\n"
+                                    f"If you ever want to see this image on the charts again after reloading the data, "
+                                    f"you have to re-run analysis.\n"
+                                    f"Did you take note of the image name ({hover_text})?"
+                        ),
+                        dcc.Input(type='hidden', id='excludeImagePath', value=stats_path),
+                        html.Span(id="excludeImageDebug")
+                    ]))
 
                     fig = px.imshow(img)
                     if os.path.exists(csv_path):
@@ -299,6 +367,16 @@ def get_app():
                     result.append(dcc.Graph(id='image', figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
                     result.append(html.Pre(id='imageDebug'))
                     result.append(dcc.Graph(id='imageSelectionGraph'))
+                    result.append(dcc.ConfirmDialogProvider(
+                        html.Button("Save these statistics"),
+                        'saveStatsDangerProvider',
+                        "Warning! This will overwrite the statistics of this image.\n"
+                        "After reloading the data, you will need to open this image again to reset.\n"
+                        "Are you sure?"
+                    ))
+                    result.append(html.Pre(id='imageSelectionDebug'))
+                    result.append(dcc.Input(id='saveStatsDumpInput', type='hidden', value=dump))
+                    result.append(html.Br())
             except ImportError as e:
                 result.append(html.P([
                     "Error: Failed to load preview image",
@@ -308,12 +386,28 @@ def get_app():
             for point in click_data['points']:
                 dump, fname_template, string_repr = point['customdata'][:3]
                 result.append(html.Div([
+                    "Analyze ",
                     html.A([string_repr],
                            href="/analyze/" + dump,
                            target='_blank')
                 ]))
 
             return result
+
+        @_app.callback(Output('excludeImageDebug', 'children'),
+                       Input('excludeImageDangerProvider', 'submit_n_clicks'), Input('excludeImagePath', 'value'))
+        def exclude_image(n_clicks, path):
+            if n_clicks == 1:
+                os.remove(path)
+                return [" ", "Ok 🙂"]
+
+        @_app.callback(Output('excludeSelectionDebug', 'children'),
+                       Input('excludeSelectionDangerProvider', 'submit_n_clicks'), Input('graph', 'selectedData'))
+        def exclude_selection(n_clicks, selected_data):
+            if n_clicks == 1:
+                for point in selected_data['points']:
+                    os.remove(point['customdata'][4])
+                return [" ", "Ok 🙂"]
 
         _app.clientside_callback("""
             function handleClick(graphClickData, imageFigure, imageClickData) {
@@ -332,10 +426,13 @@ def get_app():
             }        
         """, Output('imageDebug', 'children'), Input('graph', 'clickData'), Input('image', 'figure'), Input('image', 'clickData'))
 
-        @_app.callback(Output('imageSelectionGraph', 'figure'), Input('image', 'figure'), Input('image', 'selectedData'))
-        def update(image, selected_data):
-            import plotly.express as px
+
+        def get_df_for_image_selection_data(image, selected_data):
+            if not len(image['data']):
+                raise dash.exceptions.PreventUpdate()
+
             import pandas as pd
+
             if selected_data is None:
                 df = pd.DataFrame([
                     {'class': trace['name'], 'count': len(trace['x'])}
@@ -348,14 +445,48 @@ def get_app():
                 df = df[['class', 'pointNumber']].groupby('class').aggregate('count')
                 df.reset_index(inplace=True)
                 df = df.rename(columns={'index': 'class', 'pointNumber': 'count'})
+
+            return df
+
+
+        @_app.callback(Output('imageSelectionGraph', 'figure'), Input('image', 'figure'), Input('image', 'selectedData'))
+        def update(image, selected_data):
+            import plotly.express as px
+
+            df = get_df_for_image_selection_data(image, selected_data)
             fig = px.pie(df, names='class', values='count')
             fig.update_traces(textposition='inside', textinfo='percent+label')
             return fig
 
+        @_app.callback(Output('imageSelectionDebug', 'children'),
+                       Input('image', 'figure'), Input('image', 'selectedData'),
+                       Input('saveStatsDangerProvider', 'submit_n_clicks'), Input('saveStatsDumpInput', 'value'))
+        def update(image, selected_data, n_clicks, dump):
+            if n_clicks is None:
+                raise dash.exceptions.PreventUpdate()
+
+            import base64
+
+            df = get_df_for_image_selection_data(image, selected_data)
+            df.index = df['class']
+            df.drop('class', axis='columns')
+
+            if n_clicks:
+                target = pickle.loads(base64.urlsafe_b64decode(dump))
+                target.stats = {
+                    'Count': df['count'].sum(),
+                    'Positive': df.loc['neutral', 'count'],
+                    'Negative': df.loc['negative', 'count'],
+                    'Invalid': get_df_for_image_selection_data(image, None)['count'].sum() - df['count'].sum(),
+                    'Dropped': f"{1 - df['count'].sum() / get_df_for_image_selection_data(image, None)['count'].sum():.2%}",
+                    'Negative ratio': f"{df.loc['negative', 'count'] / df['count'].sum():.2%}",
+                }
+                target.save_stats()
+
+                return " Ok " + ["😅", "🙂"][n_clicks % 2]
+
     return _app
 
-
-folder_of_datasets = "C:\\Users\\led\\OneDrive - elte.hu\\képek\\BEN-Jra-TNF pathway"
 
 if __name__ == '__main__':
     df = get_df()
@@ -363,10 +494,12 @@ if __name__ == '__main__':
     print()
     print(df.describe())
 
-    df.to_csv(os.path.join(folder_of_datasets, 'stats.csv'),
+    output_folder = get_config()['output']
+
+    df.to_csv(os.path.join(output_folder, 'stats.csv'),
               index_label="path")
 
-    generate_figure(df).write_html(os.path.join(folder_of_datasets, 'stats.html'))
+    generate_figure(df).write_html(os.path.join(output_folder, 'stats.html'))
 
     app = get_app()
     app.run_server(debug=True)
