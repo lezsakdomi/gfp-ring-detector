@@ -63,7 +63,7 @@ routeParser =
     in
     oneOf
         [ map (List Nothing) (s "list" <?> listOptionsParser)
-        , map List (s "list" </> (map Just string) <?> listOptionsParser)
+        , map List (s "list" </> (map Url.percentDecode string) <?> listOptionsParser)
         , map (Analyze Nothing) (s "analyze" <?> analyzeOptionsParser)
         , map Analyze (s "analyze" </> (map (Just << target) string) <?> analyzeOptionsParser)
         ]

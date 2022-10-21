@@ -12,12 +12,13 @@ import Page.List.Model exposing (..)
 import PickledData exposing (PickledData)
 import Ports
 import Route
+import Url
 
 init : Base -> Maybe String -> Route.ListOptions -> (Model, Cmd Msg)
 init base dataset {filter} =
     ({results = [], filter = filter, loading = True}, Ports.openWs <| case dataset of
         Nothing -> Base.getWsUrl base "/list"
-        Just dataset_ -> todo "List websocket URL over dataset " ++ dataset_
+        Just dataset_ -> Base.getWsUrl base "/list/" ++ Url.percentEncode(dataset_)
     )
 
 clientUpdate : ClientMsg -> Model -> (Model, ListCmd.Cmd)

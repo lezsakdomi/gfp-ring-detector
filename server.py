@@ -6,6 +6,7 @@ import os
 import pickle
 import sys
 import traceback
+import urllib.parse
 import warnings
 
 import numpy as np
@@ -141,11 +142,21 @@ async def analyze(request, ws, target_str):
 
 
 @app.websocket('/api/list')
-async def list_targets(request, ws):
+async def list_default_dataset(request, ws):
+    from list_targets import default_dataset
+
+    return await list_targets(request, ws, default_dataset)
+
+
+@app.websocket('/api/list/<dataset:str>')
+async def list_targets(request, ws, dataset):
     from list_targets import walk
     from json import dumps
+    from urllib.parse import unquote
 
-    for image in walk():
+    dataset = unquote(dataset)
+
+    for image in walk(dataset=dataset):
         json = dumps({
             'fnameTemplate': image.fname_template,
             'name': image.name,
