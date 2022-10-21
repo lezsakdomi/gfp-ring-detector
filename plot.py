@@ -328,9 +328,9 @@ def get_app():
                     ])
 
                     img = np.dstack([
-                        imread(fname_template.format(0)),
-                        imread(fname_template.format(1)),
-                        imread(fname_template.format(2)),
+                        imread(fname_template.format(0), as_gray=True),
+                        imread(fname_template.format(1), as_gray=True),
+                        imread(fname_template.format(2), as_gray=True),
                     ])
                     result.append(html.H3([
                         hover_text,
