@@ -33,6 +33,8 @@ class Target:
             self.stats = {}
             with open(self.stats_path) as f:
                 for line in f.readlines():
+                    if not line:
+                        continue
                     stat_line_re_match = stat_line_re.match(line)
                     if stat_line_re_match is None:
                         raise TargetFormatError("A stat line is invalid")
@@ -60,6 +62,14 @@ class Target:
     @property
     def stats_path(self):
         return os.path.join(self.path, 'stats.txt')
+
+    def save_stats(self):
+        if self.stats is None:
+            raise Exception("Image has no stats to save")
+
+        with open(self.stats_path, 'w') as f:
+            for k, v in self.stats.items():
+                f.write(f"{k[0].upper()}{k[1:]}: {v}\n")
 
     @property
     def fname_template(self):
