@@ -8,7 +8,7 @@ import toml
 default_dataset = 'képek'
 
 
-folder_re = re.compile('^(?P<name>.*)\.(?:zvi|tif)_Files$')
+folder_re = re.compile('^(?P<name>.*)\.(?:zvi|tif)_[fF]iles$')
 stat_line_re = re.compile('^(?P<feature>[^:]+): (?P<value>.*)\n?$')
 
 
@@ -75,6 +75,10 @@ class Target:
         if len(img.shape) == 3 and img.shape[0] == 2 \
                 and np.sum(np.abs(img[1, :, :] - img[0, :, :])) == 0:
             img = img[0, :, :]
+        elif len(img.shape) == 3 and img.shape[2] == 3 \
+                and np.sum(np.abs(img[:, :, 1] - img[:, :, 0])) == 0 \
+                and np.sum(np.abs(img[:, :, 1] - img[:, :, 2])) == 0:
+            img = img[:, :, 0]
         return img
 
     @property
@@ -97,6 +101,18 @@ class SliceTarget(Target):
     @property
     def fname_template(self):
         return os.path.join(self.path, f"{self.name}_z{self.z}c{'{}'}.tif")
+
+
+class M2Target(Target):
+    def __init__(self, path, dataset=None):
+        super().__init__(path, dataset=dataset)
+
+    def __str__(self):
+        return f"M2 image {self.name} ({self.path})"
+
+    @property
+    def fname_template(self):
+        return os.path.join(self.path, f"{self.name}_h0b0c{'{}'}x0-2048y0-2048.tif")
 
 
 class CustomTarget(Target):
@@ -125,11 +141,13 @@ def walk(dataset=None):
         try:
             yield Target(path, dataset=dataset)
         except TargetFormatError:
-            i = 0
-            while True:
-                try:
-                    yield SliceTarget(path, i, dataset=dataset)
-                    i += 1
-                except TargetFormatError:
-                    break
-
+            try:
+                yield M2Target(path, dataset=dataset)
+            except TargetFormatError:
+                i = 0
+                while True:
+                    try:
+                        yield SliceTarget(path, i, dataset=dataset)
+                        i += 1
+                    except TargetFormatError:
+                        break
