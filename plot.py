@@ -104,7 +104,7 @@ def get_df():
                      'count', 'positive', 'negative', 'invalid',
                      ])
 
-        h_re = re.compile(r'.*_(-?\d+)h-\d{4}$')
+        h_re = re.compile(r'.*_(-?\d+)h[-_]\d{4}$')
 
         for target in walk([entry.path for entry in os.scandir(folder_of_datasets)]):
             # print(target)
