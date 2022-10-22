@@ -500,11 +500,11 @@ def get_app():
                 target = pickle.loads(base64.urlsafe_b64decode(dump))
                 target.stats = {
                     'Count': df['count'].sum(),
-                    'Positive': df.loc['neutral', 'count'],
+                    'Positive': df.loc['positive', 'count'],
                     'Negative': df.loc['negative', 'count'],
                     'Invalid': get_df_for_image_selection_data(image, None)['count'].sum() - df['count'].sum(),
-                    'Dropped': f"{1 - df['count'].sum() / get_df_for_image_selection_data(image, None)['count'].sum():.2%}",
-                    'Negative ratio': f"{df.loc['negative', 'count'] / df['count'].sum():.2%}",
+                    'Dropped': f"{1 - (df.loc['positive', 'count'] + df.loc['negative', 'count']) / df['count'].sum():.2%}",
+                    'Negative ratio': f"{df.loc['negative', 'count'] / df.loc[['positive', 'negative'], 'count'].sum():.2%}",
                 }
                 target.save_stats()
 

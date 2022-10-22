@@ -1,3 +1,5 @@
+import datetime
+
 from list_targets import Target, CustomTarget
 from pipeline_lib import Step, Pipeline
 import numpy as np
@@ -83,8 +85,8 @@ class RingDetector(Pipeline):
         from skimage.draw import disk
 
         neutral = []
-        gfp_positive = []
-        gfp_negative = []
+        positive = []
+        negative = []
         for coordinates in all_coordinates:
             x, y, r = coordinates
             granule_mask = np.zeros_like(diff, dtype=bool)
@@ -95,28 +97,33 @@ class RingDetector(Pipeline):
                 value = np.mean(GFP, where=granule_mask)
                 coordinates = list(coordinates)
                 coordinates.append(value)
-                if value < 0.25:
-                    gfp_negative.append(coordinates)
-                # elif np.mean(diff, where=granule_mask) > 0.2:
-                #     gfp_positive.append(coordinates)
-                else:
+                if value < 0.1:
+                    negative.append(coordinates)
+                elif value < 0.25:
                     neutral.append(coordinates)
+                # elif np.mean(diff, where=granule_mask) > 0.2:
+                #     positive.append(coordinates)
+                else:
+                    positive.append(coordinates)
             except IndexError:
                 pass
-        return gfp_positive, neutral, gfp_negative
+        return positive, neutral, negative
 
     @Step.of('stat_text')
     def count(self, all_coordinates, positive_coordinates, neutral_coordinates, negative_coordinates):
+        from datetime import datetime
+
         stat_text = []
         all = len(all_coordinates)
         neutral = len(neutral_coordinates)
         negative = len(negative_coordinates)
         positive = len(positive_coordinates)
 
+        stat_text.append(f"Analysis date: {datetime.now()}\n")
         stat_text.append(f"Count: {all}\n")
-        stat_text.append(f"Positive: {neutral}\n")
+        stat_text.append(f"Positive: {positive}\n")
         stat_text.append(f"Negative: {negative}\n")
-        stat_text.append(f"Invalid: {positive}\n")
+        stat_text.append(f"Invalid: {all - positive - negative - neutral}\n")
         stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
         stat_text.append(f"Negative ratio: {negative / (neutral + negative):.2%}\n")
         return stat_text
