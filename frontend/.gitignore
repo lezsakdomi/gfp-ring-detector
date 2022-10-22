@@ -1,1 +1,8 @@
 Main.js
+all_frames/
+all_frames_segmented/
+all_frames_unsegmented/
+frame_annotations/
+frames/
+doc/plantuml-images/
+env/
