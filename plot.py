@@ -204,8 +204,8 @@ def get_app():
         _app.layout = dbc.Container(style={'marginTop': '12px'}, children=[
             dbc.Row([
                 dbc.Col(dcc.Dropdown(id='dropdown',
-                             options=get_df()['dataset name'].unique(),
-                             multi=True)),
+                                     options=get_df()['dataset name'].unique(),
+                                     multi=True)),
                 dbc.Col(dbc.Button("🔃 Reload data", 'reload', color='primary'),
                         style={'flexGrow': '0', 'flexBasis': 'content'}),
             ]),
@@ -342,7 +342,7 @@ def get_app():
                     set_progress([
                         html.Div([
                             html.H3([hover_text]),
-                            dbc.Col(dbc.Progress(value=100/3, label="Loading image..."), width=3),
+                            dbc.Col(dbc.Progress(value=100 / 3, label="Loading image..."), width=3),
                         ])
                     ])
                     g = imread(fname_template.format(1), as_gray=True)
@@ -350,7 +350,7 @@ def get_app():
                     set_progress([
                         html.Div([
                             html.H3([hover_text]),
-                            dbc.Col(dbc.Progress(value=200/3, label="Loading image..."), width=3),
+                            dbc.Col(dbc.Progress(value=200 / 3, label="Loading image..."), width=3),
                         ])
                     ])
                     b = imread(fname_template.format(2), as_gray=True)
@@ -375,7 +375,8 @@ def get_app():
                         set_progress([
                             html.Div([
                                 html.H3([hover_text]),
-                                dbc.Col(dbc.Progress(value=100, striped=True, label="Loading points...", animated=True), width=3),
+                                dbc.Col(dbc.Progress(value=100, striped=True, label="Loading points...", animated=True),
+                                        width=3),
                             ])
                         ])
 
@@ -429,7 +430,8 @@ def get_app():
                     os.remove(point['customdata'][4])
                 return [" ", "Ok 🙂"]
 
-        _app.clientside_callback("""
+        _app.clientside_callback(
+            """
             function handleClick(graphClickData, imageFigure, imageClickData) {
                 if (dash_clientside.callback_context.triggered.length === 1) {
                     switch (dash_clientside.callback_context.triggered[0].prop_id) {
@@ -444,8 +446,9 @@ def get_app():
                     }
                 }
             }        
-        """, Output('imageDebug', 'children'), Input('graph', 'clickData'), Input('image', 'figure'), Input('image', 'clickData'))
-
+            """,
+            Output('imageDebug', 'children'),
+            Input('graph', 'clickData'), Input('image', 'figure'), Input('image', 'clickData'))
 
         def get_df_for_image_selection_data(image, selected_data):
             if not len(image['data']):
@@ -468,8 +471,8 @@ def get_app():
 
             return df
 
-
-        @_app.callback(Output('imageSelectionGraph', 'figure'), Input('image', 'figure'), Input('image', 'selectedData'))
+        @_app.callback(Output('imageSelectionGraph', 'figure'),
+                       Input('image', 'figure'), Input('image', 'selectedData'))
         def update(image, selected_data):
             import plotly.express as px
 
