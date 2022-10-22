@@ -17,6 +17,7 @@ jobs:
       uses: mpizenberg/elm-tooling-action@v1.2
       with:
         cache-key: elm-home-${{ hashFiles('elm-tooling.json', 'frontend/elm.json') }}
+      working-directory: frontend
     - name: ⚙ Create execution environment
       run: |
         C:\Miniconda\condabin\conda env create -f environment.yml -n env
@@ -36,7 +37,8 @@ jobs:
         7z x -odist env.tar
     - name: ⚙ Build frontend
       run: |
-        elm make frontned/Main.elm --output dist/frontend/Main.js
+        elm make Main.elm --output Main.js
+      working-directory: dist/frontend
 #    - name: 📤 Archive production artifacts
 #      uses: actions/upload-artifact@v3
 #      with:
