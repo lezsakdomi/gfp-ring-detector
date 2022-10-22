@@ -92,7 +92,10 @@ class RingDetector(Pipeline):
                 xx, yy = disk((x, y), r)
                 granule_mask[xx, yy] = True
                 granule_mask = mask * granule_mask
-                if np.mean(GFP, where=granule_mask) < 0.25:
+                value = np.mean(GFP, where=granule_mask)
+                coordinates = list(coordinates)
+                coordinates.append(value)
+                if value < 0.25:
                     gfp_negative.append(coordinates)
                 # elif np.mean(diff, where=granule_mask) > 0.2:
                 #     gfp_positive.append(coordinates)
@@ -124,7 +127,8 @@ class RingDetector(Pipeline):
         def visualize_list(l):
             from skimage.draw import disk
             img = np.zeros_like(sample)
-            for x, y, r in l:
+            for c in l:
+                x, y, r = c[:3]
                 xx, yy = disk((x, y), r)
                 try:
                     img[xx, yy] = 1
@@ -146,7 +150,7 @@ class RingDetector(Pipeline):
 
         def to_df(data):
             coordinates, type_str = data
-            df = pd.DataFrame(coordinates, columns=['y', 'x', 'diameter'])
+            df = pd.DataFrame(coordinates, columns=['y', 'x', 'diameter', 'value'])
             df['class'] = type_str
             return df
 
