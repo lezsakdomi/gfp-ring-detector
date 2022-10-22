@@ -14,9 +14,9 @@ jobs:
       with:
         python-version: 3.10
     - name: 🔧 Set up Elm
-      uses: jorelali/setup-elm@v3
+      uses: mpizenberg/elm-tooling-action@v1.2
       with:
-        elm-version: 0.19.1
+        cache-key: elm-home-${{ hashFiles('frontend/elm-tooling.json', 'frontend/elm.json') }}
     - name: ⚙ Create execution environment
       run: |
         C:\Miniconda\condabin\activate.bat
