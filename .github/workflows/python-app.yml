@@ -19,15 +19,14 @@ jobs:
         cache-key: elm-home-${{ hashFiles('elm-tooling.json', 'frontend/elm.json') }}
     - name: ⚙ Create execution environment
       run: |
-        C:\Miniconda\condabin\activate.bat
-        conda env create -f environment.yml -n env
-        conda activate env
+        C:\Miniconda\condabin\conda env create -f environment.yml -n env
+        C:\Miniconda\condabin\conda activate env
     - name: 🔧 Set up conda-pack
       run: |
-        conda install conda-pack
+        C:\Miniconda\condabin\conda install conda-pack
     - name: ⚙ Package execution environment
       run: |
-        conda pack -n env -o env.tar
+        C:\Miniconda\condabin\conda pack -n env -o env.tar
     - name: 💾 Add sources to distribution
       uses: actions/checkout@v3
       with:
