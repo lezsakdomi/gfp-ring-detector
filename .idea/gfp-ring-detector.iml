@@ -10,6 +10,12 @@
       <excludeFolder url="file://$MODULE_DIR$/test-images" />
       <excludeFolder url="file://$MODULE_DIR$/képek" />
       <excludeFolder url="file://$MODULE_DIR$/GF_CO_0624" />
+      <excludeFolder url="file://$MODULE_DIR$/all_frames" />
+      <excludeFolder url="file://$MODULE_DIR$/all_frames_segmented" />
+      <excludeFolder url="file://$MODULE_DIR$/all_frames_unsegmented" />
+      <excludeFolder url="file://$MODULE_DIR$/frame_annotations" />
+      <excludeFolder url="file://$MODULE_DIR$/frames" />
+      <excludeFolder url="file://$MODULE_DIR$/Statisztikai analízis (glue granulum méret)" />
       <excludePattern pattern="elm-stuff" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (gfp-ring-detector)" jdkType="Python SDK" />
