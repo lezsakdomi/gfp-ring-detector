@@ -17,7 +17,6 @@ jobs:
       uses: mpizenberg/elm-tooling-action@v1.2
       with:
         cache-key: elm-home-${{ hashFiles('elm-tooling.json', 'frontend/elm.json') }}
-      working-directory: frontend
     - name: ⚙ Create execution environment
       run: |
         C:\Miniconda\condabin\conda env create -f environment.yml -n env
