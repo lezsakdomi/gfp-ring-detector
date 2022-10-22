@@ -192,24 +192,38 @@ def get_app():
         from dash import Dash, dcc, html, Input, Output
         import diskcache
         from dash.long_callback import DiskcacheLongCallbackManager
+        import dash_bootstrap_components as dbc
+        from dash_bootstrap_templates import load_figure_template
 
+        load_figure_template('DARKLY')
+        dbc_css = ("https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.2/dbc.min.css")
         _app = Dash(url_base_pathname='/dash/',
-                    background_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()))
-        _app.layout = html.Div([
-            dcc.Dropdown(id='dropdown',
-                         options=get_df()['dataset name'].unique(),
-                         multi=True),
-            html.Button(["🔃 Reload data"], 'reload'),
-            html.Div([
-                "Pupae stage visualization:",
-                dcc.RadioItems(id='radio',
-                               options=["boxplot X axis", "scatter X axis", "color", "size (later is bigger)"],
-                               value="size (later is bigger)"),
+                    background_callback_manager=DiskcacheLongCallbackManager(diskcache.Cache()),
+                    external_stylesheets=[dbc.themes.DARKLY, dbc_css])
+
+        _app.layout = dbc.Container(style={'marginTop': '12px'}, children=[
+            dbc.Row([
+                dbc.Col(dcc.Dropdown(id='dropdown',
+                             options=get_df()['dataset name'].unique(),
+                             multi=True)),
+                dbc.Col(dbc.Button("🔃 Reload data", 'reload', color='primary'),
+                        style={'flexGrow': '0', 'flexBasis': 'content'}),
+            ]),
+            dbc.Row([
+                dbc.Label("Pupae stage visualization:"),
+                dbc.RadioItems(id='radio', inline=True,
+                               options=[
+                                   {'value': "boxplot", 'label': "boxplot X axis"},
+                                   {'value': "scatter", 'label': "scatter X axis"},
+                                   {'value': "color", 'label': "color"},
+                                   {'value': "size", 'label': "size (later is bigger)"},
+                               ],
+                               value="size"),
             ], id='radioContainer'),
             dcc.Graph(id='graph', clear_on_unhover=True),
             html.Pre(id='debug'),
             html.Div(id='preview'),
-        ])
+        ], fluid=True, className="dbc")
 
         @_app.callback(Output('dropdown', 'options'),
                        Input('reload', 'n_clicks'))
@@ -228,16 +242,16 @@ def get_app():
             if dataset_names:
                 df = df[df['dataset name'].isin(dataset_names)]
 
-            if not dataset_names or rendering_style == 'boxplot X axis':
+            if not dataset_names or rendering_style == 'boxplot':
                 df = df[~df['h'].isna()]
                 fig = generate_figure(df, x='RPF', c=None, group='dataset name', type='box')
             else:
                 match rendering_style:
-                    case 'size (later is bigger)':
+                    case 'size':
                         fig = generate_figure(df, c='dataset name')
                     case 'color':
                         fig = generate_figure(df, c='RPF')
-                    case 'scatter X axis':
+                    case 'scatter':
                         fig = generate_figure(df, x='RPF', c='dataset name',
                                               type='strip')
             return fig
@@ -268,7 +282,7 @@ def get_app():
             return [
                 "\n".join([data['hovertext'] for data in selected_data['points']]),
                 html.Br(), dcc.ConfirmDialogProvider(
-                    html.Button("Remove statistics of selected images"),
+                    dbc.Button("Remove statistics of selected images", color='danger'),
                     id='excludeSelectionDangerProvider',
                     message=f"Danger! Removing statistics is destructive, "
                             f"selected data points will be lost after reloading the data.\n"
@@ -298,6 +312,7 @@ def get_app():
                 import base64
                 import numpy as np
                 import plotly.express as px
+                import dash_bootstrap_components as dbc
 
                 def to_data_url(image, fmt='png'):
                     image = img_as_ubyte(image)
@@ -319,43 +334,48 @@ def get_app():
                     set_progress([
                         html.Div([
                             html.H3([hover_text]),
-                            html.Div([
-                                html.Progress(),
-                                " ",
-                                "Loading image...",
-                            ]),
+                            dbc.Col(dbc.Progress(value=0, label="Loading image..."), width=3),
                         ])
                     ])
+                    r = imread(fname_template.format(0), as_gray=True)
 
-                    img = np.dstack([
-                        imread(fname_template.format(0), as_gray=True),
-                        imread(fname_template.format(1), as_gray=True),
-                        imread(fname_template.format(2), as_gray=True),
+                    set_progress([
+                        html.Div([
+                            html.H3([hover_text]),
+                            dbc.Col(dbc.Progress(value=100/3, label="Loading image..."), width=3),
+                        ])
                     ])
-                    result.append(html.H3([
-                        hover_text,
-                        " ", dcc.ConfirmDialogProvider(
-                            html.Button("Remove statistics of this image"),
+                    g = imread(fname_template.format(1), as_gray=True)
+
+                    set_progress([
+                        html.Div([
+                            html.H3([hover_text]),
+                            dbc.Col(dbc.Progress(value=200/3, label="Loading image..."), width=3),
+                        ])
+                    ])
+                    b = imread(fname_template.format(2), as_gray=True)
+
+                    img = np.dstack([r, g, b])
+                    result.append(html.Div([
+                        html.Div(dcc.ConfirmDialogProvider(
+                            dbc.Button("Remove statistics of this image", color='danger', outline=True),
                             id='excludeImageDangerProvider',
                             message=f"Danger! Removing statistics is destructive.\n"
                                     f"If you ever want to see this image on the charts again after reloading the data, "
                                     f"you have to re-run analysis.\n"
                                     f"Did you take note of the image name ({hover_text})?"
-                        ),
+                        ), style={'float': 'right'}),
+                        html.H3(hover_text),
                         dcc.Input(type='hidden', id='excludeImagePath', value=stats_path),
                         html.Span(id="excludeImageDebug")
                     ]))
 
-                    fig = px.imshow(img)
+                    fig = px.imshow(img, template='plotly_dark')
                     if os.path.exists(csv_path):
                         set_progress([
                             html.Div([
                                 html.H3([hover_text]),
-                                html.Div([
-                                    html.Progress(),
-                                    " ",
-                                    "Loading points...",
-                                ]),
+                                dbc.Col(dbc.Progress(value=100, striped=True, label="Loading points...", animated=True), width=3),
                             ])
                         ])
 
@@ -366,14 +386,14 @@ def get_app():
                             fig.add_trace(trace)
                     result.append(dcc.Graph(id='image', figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
                     result.append(html.Pre(id='imageDebug'))
-                    result.append(dcc.Graph(id='imageSelectionGraph'))
-                    result.append(dcc.ConfirmDialogProvider(
-                        html.Button("Save these statistics"),
+                    result.append(html.Div(dcc.ConfirmDialogProvider(
+                        dbc.Button("Save these statistics", color='warning', outline=True),
                         'saveStatsDangerProvider',
                         "Warning! This will overwrite the statistics of this image.\n"
                         "After reloading the data, you will need to open this image again to reset.\n"
                         "Are you sure?"
-                    ))
+                    ), style={'float': 'left', 'position': 'relative', 'zIndex': '1', 'top': '1em', 'left': '1em'}))
+                    result.append(dcc.Graph(id='imageSelectionGraph'))
                     result.append(html.Pre(id='imageSelectionDebug'))
                     result.append(dcc.Input(id='saveStatsDumpInput', type='hidden', value=dump))
                     result.append(html.Br())
@@ -386,7 +406,7 @@ def get_app():
             for point in click_data['points']:
                 dump, fname_template, string_repr = point['customdata'][:3]
                 result.append(html.Div([
-                    "Analyze ",
+                    "Analyze: ",
                     html.A([string_repr],
                            href="/analyze/" + dump,
                            target='_blank')
