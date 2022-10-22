@@ -16,7 +16,7 @@ jobs:
     - name: 🔧 Set up Elm
       uses: mpizenberg/elm-tooling-action@v1.2
       with:
-        cache-key: elm-home-${{ hashFiles('frontend/elm-tooling.json', 'frontend/elm.json') }}
+        cache-key: elm-home-${{ hashFiles('elm-tooling.json', 'frontend/elm.json') }}
     - name: ⚙ Create execution environment
       run: |
         C:\Miniconda\condabin\activate.bat
