@@ -381,8 +381,10 @@ def get_app():
                         ])
 
                         import pandas as pd
-                        scatter = px.scatter(pd.read_csv(csv_path),
-                                             'x', 'y', 'class')
+                        df = pd.read_csv(csv_path)
+                        scatter = px.scatter(df,
+                                             'x', 'y', 'class',
+                                             hover_data={'value': ':.3f'})
                         for trace in scatter.data:
                             fig.add_trace(trace)
                     result.append(dcc.Graph(id='image', figure=fig, style={'height': 'calc(100vw / 1388 * 1040)'}))
