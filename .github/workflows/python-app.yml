@@ -31,6 +31,9 @@ jobs:
       uses: actions/checkout@v3
       with:
         path: dist
+    - name: 💾 Remove .git folder from distribution
+      run: |
+        rm -r -fo dist/.git
     - name: 💾 Add environment to distribution
       run: |
         mkdir dist/env
