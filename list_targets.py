@@ -114,7 +114,18 @@ class SliceTarget(Target):
 
 
 class M2Target(Target):
+    n_re = re.compile(r'^.*_h0b0c0x0-(\d+)y0-(\d+).tif$')
+
     def __init__(self, path, dataset=None):
+        def find_n():
+            for fn in os.listdir(path):
+                match = self.n_re.match(fn)
+                if match is not None:
+                    return int(match.group(1))
+            return TargetFormatError("No matching filename found")
+
+        self.n = find_n()
+        os.listdir(path)
         super().__init__(path, dataset=dataset)
 
     def __str__(self):
@@ -122,7 +133,18 @@ class M2Target(Target):
 
     @property
     def fname_template(self):
-        return os.path.join(self.path, f"{self.name}_h0b0c{'{}'}x0-2048y0-2048.tif")
+        return os.path.join(self.path, f"{self.name}_h0b0c{'{}'}x0-{self.n}y0-{self.n}.tif")
+
+
+class M2SliceTarget(M2Target):
+    n_re = re.compile(r'^.*_t0c0x0-(\d+)y0-(\d+).tif$')
+
+    def __str__(self):
+        return f"M2 slice {self.name} ({self.path})"
+
+    @property
+    def fname_template(self):
+        return os.path.join(self.path, f"{self.name}_t0c{'{}'}x0-{self.n}y0-{self.n}.tif")
 
 
 class CustomTarget(Target):
@@ -154,10 +176,13 @@ def walk(dataset=None):
             try:
                 yield M2Target(path, dataset=dataset)
             except TargetFormatError:
-                i = 0
-                while True:
-                    try:
-                        yield SliceTarget(path, i, dataset=dataset)
-                        i += 1
-                    except TargetFormatError:
-                        break
+                try:
+                    yield M2SliceTarget(path, dataset=dataset)
+                except:
+                    i = 0
+                    while True:
+                        try:
+                            yield SliceTarget(path, i, dataset=dataset)
+                            i += 1
+                        except TargetFormatError:
+                            break

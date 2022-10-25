@@ -211,14 +211,7 @@ def get_app():
             ]),
             dbc.Row([
                 dbc.Label("Pupae stage visualization:"),
-                dbc.RadioItems(id='radio', inline=True,
-                               options=[
-                                   {'value': "boxplot", 'label': "boxplot X axis"},
-                                   {'value': "scatter", 'label': "scatter X axis"},
-                                   {'value': "color", 'label': "color"},
-                                   {'value': "size", 'label': "size (later is bigger)"},
-                               ],
-                               value="size"),
+                dbc.RadioItems(id='radio', inline=True, value="size"),
             ], id='radioContainer'),
             dcc.Graph(id='graph', clear_on_unhover=True),
             html.Pre(id='debug'),
@@ -226,7 +219,11 @@ def get_app():
         ], fluid=True, className="dbc")
 
         @_app.callback(Output('dropdown', 'options'),
-                       Input('reload', 'n_clicks'))
+                       Input('reload', 'n_clicks'),
+                       background=True,
+                       running=[
+                           (Output('reload', 'disabled'), True, False),
+                       ])
         def update(n_clicks):
             global _df
 
