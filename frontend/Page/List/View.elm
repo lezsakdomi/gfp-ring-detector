@@ -52,7 +52,7 @@ render {filter, results, loading} currentAnalysis =
         , span [] <|
             [ text info
             , text " "
-            , a [ href "/dash" ] [ button [] [ text "📊 Open dashboard" ] ]
+            , a [ href "/dash", target "_blank" ] [ button [] [ text "📊 Open dashboard" ] ]
             ] ++ if not loading && Maybe.isNothing currentAnalysis
                 then
                     [ text " ", button [ onClick StartAnalysis ] [ text "▶️ Start analysis on this dataset" ] ]
