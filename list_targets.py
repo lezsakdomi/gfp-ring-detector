@@ -8,7 +8,6 @@ import toml
 default_dataset = 'képek'
 
 
-folder_re = re.compile('^(?P<name>.*)\.(?:zvi|tif)_[fF]iles$')
 stat_line_re = re.compile('^(?P<feature>[^:]+): (?P<value>.*)\n?$')
 
 
@@ -17,12 +16,14 @@ class TargetFormatError(Exception):
 
 
 class Target:
+    folder_re = re.compile('^(?P<name>.*)\.(?:zvi|tif)_[fF]iles$')
+
     def __init__(self, path, name=None, dataset=None):
         self.path = path
         if name is not None:
             self.name = name
         else:
-            folder_re_match = folder_re.match(os.path.basename(path))
+            folder_re_match = self.folder_re.match(os.path.basename(path))
             if folder_re_match is None:
                 raise TargetFormatError("Folder name is bad")
             self.name = folder_re_match.group('name')
@@ -147,6 +148,14 @@ class M2SliceTarget(M2Target):
         return os.path.join(self.path, f"{self.name}_t0c{'{}'}x0-{self.n}y0-{self.n}.tif")
 
 
+class ConvertedCZITarget(Target):
+    folder_re = re.compile('^(?P<name>.*)\.(?:czi)_[fF]iles$')
+
+    @property
+    def fname_template(self):
+        return os.path.join(self.path, f"{self.name}_C{'{}'}.czi.tif")
+
+
 class CustomTarget(Target):
     def __init__(self, fname_template=None, folder=None):
         self._fname_template = fname_template
@@ -179,10 +188,13 @@ def walk(dataset=None):
                 try:
                     yield M2SliceTarget(path, dataset=dataset)
                 except:
-                    i = 0
-                    while True:
-                        try:
-                            yield SliceTarget(path, i, dataset=dataset)
-                            i += 1
-                        except TargetFormatError:
-                            break
+                    try:
+                        yield ConvertedCZITarget(path, dataset=dataset)
+                    except:
+                        i = 0
+                        while True:
+                            try:
+                                yield SliceTarget(path, i, dataset=dataset)
+                                i += 1
+                            except TargetFormatError:
+                                break
