@@ -314,7 +314,7 @@ def get_app():
                 return result
 
             try:
-                from skimage.util import img_as_ubyte
+                from skimage.util import img_as_ubyte, img_as_float
                 from skimage.io import imread
                 from io import BytesIO
                 import imageio
@@ -347,6 +347,8 @@ def get_app():
                         ])
                     ])
                     r = imread(fname_template.format(0), as_gray=True)
+                    r = img_as_float(r)
+                    r = r / np.max(r)
 
                     set_progress([
                         html.Div([
@@ -355,6 +357,8 @@ def get_app():
                         ])
                     ])
                     g = imread(fname_template.format(1), as_gray=True)
+                    g = img_as_float(g)
+                    g = g / np.max(g)
 
                     set_progress([
                         html.Div([
@@ -363,6 +367,8 @@ def get_app():
                         ])
                     ])
                     b = imread(fname_template.format(2), as_gray=True)
+                    b = img_as_float(b)
+                    b = b / np.max(b)
 
                     img = np.dstack([r, g, b])
                     result.append(html.Div([
