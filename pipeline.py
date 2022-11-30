@@ -53,6 +53,21 @@ class RingDetector(Pipeline):
 
         return DsRed, GFP, DAPI
 
+    @Step.of(['composite', 'composite_path'])
+    def create_composite(self, target, DsRed, GFP, DAPI):
+        from skimage.io import imsave
+        from os.path import join, dirname
+
+        composite_path = [
+            join(target.path, f"composite.jpg"),
+            join(dirname(target.path), f"{target.name}_composite.tif"),
+        ]
+        composite = np.dstack([DsRed, GFP, DAPI])
+        for path in composite_path:
+            imsave(path, composite)
+
+        return composite, composite_path
+
     @Step.of(['DsRed', 'GFP', 'mask', 'gfp_min'])
     def clean(self, DsRed, GFP, DAPI):
         from skimage.filters import gaussian
@@ -136,24 +151,6 @@ class RingDetector(Pipeline):
         stat_text.append(f"Negative ratio: {negative / (neutral + negative):.2%}\n")
         return stat_text
 
-    @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
-             of=['all', 'positive', 'neutral', 'negative'])
-    def visualize_coordinates(self, sample, *args):
-        def visualize_list(l):
-            from skimage.draw import disk
-            img = np.zeros_like(sample)
-            for c in l:
-                x, y, r = c[:3]
-                xx, yy = disk((x, y), r)
-                try:
-                    img[xx, yy] = 1
-                except IndexError:
-                    img[x, y] = 1
-
-            return img
-
-        return list(map(visualize_list, args))
-
     @Step.of('save_path')
     def save_stats(self, target, stat_text):
         open(target.stats_path, 'w').writelines(stat_text)
@@ -176,6 +173,24 @@ class RingDetector(Pipeline):
         ])), ignore_index=True).to_csv(target.csv_path)
 
         return target.csv_path
+
+    @Step.on(['DsRed', 'all_coordinates', 'positive_coordinates', 'neutral_coordinates', 'negative_coordinates'],
+             of=['all', 'positive', 'neutral', 'negative'])
+    def visualize_coordinates(self, sample, *args):
+        def visualize_list(l):
+            from skimage.draw import disk
+            img = np.zeros_like(sample)
+            for c in l:
+                x, y, r = c[:3]
+                xx, yy = disk((x, y), r)
+                try:
+                    img[xx, yy] = 1
+                except IndexError:
+                    img[x, y] = 1
+
+            return img
+
+        return list(map(visualize_list, args))
 
     def _hook(self, hook, *args, **kwargs):
         if self._interactive:
