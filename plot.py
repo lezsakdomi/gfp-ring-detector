@@ -508,7 +508,7 @@ def get_app():
             if n_clicks:
                 target = pickle.loads(base64.urlsafe_b64decode(dump))
                 target.stats = {
-                    'Count': df['count'].sum(),
+                    'Count': get_df_for_image_selection_data(image, None)['count'].sum(),
                     'Positive': df.loc['positive', 'count'],
                     'Negative': df.loc['negative', 'count'],
                     'Invalid': get_df_for_image_selection_data(image, None)['count'].sum() - df['count'].sum(),
