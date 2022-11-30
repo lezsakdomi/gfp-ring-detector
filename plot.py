@@ -10,7 +10,8 @@ from list_targets import walk
 
 def generate_figure(df, x='total', y='positive ratio', c='RPF',
                     group: str | None = None,
-                    type='scatter'):
+                    type='scatter',
+                    try_showing_stage=True):
     import pandas as pd
     import plotly.express as px
 
@@ -21,7 +22,7 @@ def generate_figure(df, x='total', y='positive ratio', c='RPF',
 
     if group is None and not h_columns.isdisjoint([x]):
         group = time_availability
-    else:
+    elif try_showing_stage:
         marker_symbols = time_availability
         symbol_sequence = []
         if len(df) > 0 and df['h'].isna().sum() > 0:
@@ -30,7 +31,7 @@ def generate_figure(df, x='total', y='positive ratio', c='RPF',
                 symbol_sequence = symbol_sequence.reverse()
 
     marker_sizes = None
-    if h_columns.isdisjoint([x, y, c, group]):
+    if try_showing_stage and h_columns.isdisjoint([x, y, c, group]):
         marker_sizes = [(0 if pd.isna(h) else h) - (min(0, df['h'].min())) + 1 for h in df['h']]
 
     title = f"Comparison of <i>{x}</i> and <i>{y}</i> for different <i>stage</i>s among " + (
@@ -239,7 +240,9 @@ def get_app():
             if dataset_names:
                 df = df[df['dataset name'].isin(dataset_names)]
 
-            if not dataset_names or rendering_style == 'boxplot':
+            if rendering_style == 'none':
+                fig = generate_figure(df, x='dataset name', c=None, group=None, type='box', try_showing_stage=False)
+            elif not dataset_names or rendering_style == 'boxplot':
                 df = df[~df['h'].isna()]
                 fig = generate_figure(df, x='RPF', c=None, group='dataset name', type='box')
             else:
@@ -262,13 +265,22 @@ def get_app():
             else:
                 return {'height': "600px"}
 
-        @_app.callback(Output('radioContainer', 'style'),
+        @_app.callback(Output('radio', 'options'),
                        [Input('dropdown', 'value')])
         def update(dataset_names):
             if not dataset_names:
-                return {'display': "none"}
+                return [
+                    {'value': "boxplot", 'label': "yes"},
+                    {'value': "none", 'label': "no"},
+                ]
             else:
-                return {'display': "initial"}
+                return [
+                    {'value': "none", 'label': "no differentation"},
+                    {'value': "boxplot", 'label': "boxplot X axis"},
+                    {'value': "scatter", 'label': "scatter X axis"},
+                    {'value': "color", 'label': "color"},
+                    {'value': "size", 'label': "size (later is bigger)"},
+                ]
 
         @_app.callback(Output('debug', 'children'),
                        [Input('graph', 'selectedData')])
