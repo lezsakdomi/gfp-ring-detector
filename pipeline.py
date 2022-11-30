@@ -43,6 +43,14 @@ class RingDetector(Pipeline):
         GFP = target.chread(dataset_options['channels']['GFP'])
         DAPI = target.chread(dataset_options['channels']['DAPI'])
 
+        DsRed = DsRed.astype('float64')
+        GFP = GFP.astype('float64')
+        DAPI = DAPI.astype('float64')
+
+        DsRed = DsRed / np.max(DsRed)
+        GFP = GFP / np.max(GFP)
+        DAPI = DAPI / np.max(DAPI)
+
         return DsRed, GFP, DAPI
 
     @Step.of(['DsRed', 'GFP', 'mask', 'gfp_min'])
