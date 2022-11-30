@@ -170,7 +170,7 @@ def get_df():
             'invalid': 'Int64',
         })
         _df['total'] = _df['positive'] + _df['negative']
-        _df['positive ratio'] = _df['positive'] / _df['total']
+        _df['positive ratio'] = 1 - _df['negative'] / _df['count']
         _df['stage'] = [pd.NA for _ in range(len(_df))]
         _df.loc[_df['h'] != 0, 'stage'] = _df.loc[_df['h'] != 0, 'h'].astype(str) + 'h RPF'
         _df.loc[_df['h'] == 0, 'stage'] = '0h (PF)'
