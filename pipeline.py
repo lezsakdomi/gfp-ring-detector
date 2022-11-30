@@ -146,9 +146,10 @@ class RingDetector(Pipeline):
         stat_text.append(f"Count: {all}\n")
         stat_text.append(f"Positive: {positive}\n")
         stat_text.append(f"Negative: {negative}\n")
+        stat_text.append(f"Neutral: {neutral}\n")
         stat_text.append(f"Invalid: {all - positive - negative - neutral}\n")
-        stat_text.append(f"Dropped: {(all - (neutral + negative)) / all :.2%}\n")
-        stat_text.append(f"Negative ratio: {negative / (neutral + negative):.2%}\n")
+        stat_text.append(f"Dropped: {(all - (positive + neutral + negative)) / all :.2%}\n")
+        stat_text.append(f"Negative ratio: {negative / (negative + neutral + positive):.2%}\n")
         return stat_text
 
     @Step.of('save_path')
