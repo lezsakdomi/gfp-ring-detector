@@ -1,0 +1,79 @@
+@startuml
+
+[*] -[dotted]r-> list: Alapértelmezetten\nmegnyílik a böngészőben
+list --> analyze: Fájlra kattintunk
+
+state "Fájlok listázása" as list #lightBlue {
+    [*] -[dotted]r-> noFilter
+    noFilter -r-> filtered
+    filtered -r-> filtered
+    state "Keresőmező üres" as noFilter
+    state "Szűrőfeltétel megadva" as filtered
+}
+list: Van lehetőség keresővel szűrni
+
+state "Analizálás" as analyze #lightBlue {
+    state "Fájl ismeretlen" as fileUnknown #lightBlue
+    state "Fájl kiválasztva" as fileKnownAndAnalyzing #lightBlue {
+        state "WebSocket kapcsolat létrehozva" as connected {
+            state "1. lépés" as analyzing1 {
+                state "1. lépés folyamatban" as got1inputs: Bemenetek mutatása
+                state "1. lépés kész" as got1outputs: Kimenetek mutatása
+                state "Folyamat megszakadt az 1. lépésnél" as got1error #FFCCCB: Hiba mutatása
+
+                [*] -[dotted]> got1inputs: 🖧
+                got1inputs -[dotted]> got1outputs: 🖧
+                got1outputs -[dotted]> [*]: 🖧
+                got1inputs -[dotted]-> got1error: 🖧
+            }
+
+            state "2. lépés" as analyzing2 {
+                state "2. lépés folyamatban" as got2inputs: Bemenetek mutatása
+                state "2. lépés kész" as got2outputs: Kimenetek mutatása
+                state "Folyamat megszakadt a 2. lépésnél" as got2error #FFCCCB: Hiba mutatása
+
+                [*] -[dotted]> got2inputs: 🖧
+                got2inputs -[dotted]> got2outputs: 🖧
+                got2outputs -[dotted]> [*]: 🖧
+                got2inputs -[dotted]-> got2error: 🖧
+            }
+
+            state "3. lépés" as analyzing3 {
+                state "3. lépés folyamatban" as got3inputs: Bemenetek mutatása
+                state "3. lépés kész" as got3outputs: Kimenetek mutatása
+                state "Folyamat megszakadt a 3. lépésnél" as got3error #FFCCCB: Hiba mutatása
+
+                [*] -[dotted]> got3inputs: 🖧
+                got3inputs -[dotted]> got3outputs: 🖧
+                got3outputs -[dotted]> [*]: 🖧
+                got3inputs -[dotted]-> got3error: 🖧
+            }
+
+            [*] -[dotted]-> analyzing1: 🖧
+            analyzing1 -[dotted]-> analyzing2: 🖧
+            analyzing2 -[dotted]-> analyzing3: 🖧
+            analyzing3 -[dotted]-> [*]: 🖧
+        }
+
+        state "Megszakadt a kapcsolat" as wsError #FFCCCB
+
+        [*] -[dotted]-> connected
+        'connected -[dotted]-> [*]: 🖧
+        connected -[dotted]r-> wsError: 🖧
+    }
+
+    fileUnknown -[dotted]r-> fileKnownAndAnalyzing: Fájlnév bekérése\nfelugró ablakban
+    [*] -[dotted]-> fileKnownAndAnalyzing
+}
+
+state "Több kép analizálása" as analyzeAll {
+    state "1. találat analizálása" as a1
+    state "2. találat analizálása" as a2
+    state "3. találat analizálása" as a3
+    a1 --> a2
+    a2 --> a3
+}
+
+list -r-> analyzeAll: Gombra\nkattintunk
+
+@enduml

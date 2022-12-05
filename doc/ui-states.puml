@@ -1,0 +1,196 @@
+@startuml
+
+[*] -[dotted]-> list: Alapértelmezetten\nmegnyílik a böngészőben
+list --> analyze: Fájlra kattintunk
+
+state "Fájlok listázása" as list #lightBlue {
+    [*] -[dotted]-> noFilter
+    noFilter --> filtered
+    filtered --> filtered
+    state "Keresőmező üres" as noFilter
+    state "Szűrőfeltétel megadva" as filtered
+}
+list: Van lehetőség keresővel szűrni
+
+state "Analizálás" as analyze #lightBlue {
+    state "Fájl ismeretlen" as fileUnknown #lightBlue
+    state "Fájl kiválasztva" as fileKnownAndAnalyzing #lightBlue {
+        state "WebSocket kapcsolat létrehozva" as connected {
+            state "1. lépés" as analyzing1 {
+                state "1. lépés folyamatban" as got1inputs: Bemenetek mutatása
+                state "1. lépés kész" as got1outputs: Kimenetek mutatása
+                state "Folyamat megszakadt az 1. lépésnél" as got1error #FFCCCB: Hiba mutatása
+            
+                [*] -[dotted]> got1inputs: 🖧
+                got1inputs -[dotted]> got1outputs: 🖧
+                got1outputs -[dotted]> [*]: 🖧
+                got1inputs -[dotted]-> got1error: 🖧
+            }
+                    
+            state "2. lépés" as analyzing2 {
+                state "2. lépés folyamatban" as got2inputs: Bemenetek mutatása
+                state "2. lépés kész" as got2outputs: Kimenetek mutatása
+                state "Folyamat megszakadt a 2. lépésnél" as got2error #FFCCCB: Hiba mutatása
+            
+                [*] -[dotted]> got2inputs: 🖧
+                got2inputs -[dotted]> got2outputs: 🖧
+                got2outputs -[dotted]> [*]: 🖧
+                got2inputs -[dotted]-> got2error: 🖧
+            }
+        
+            state "3. lépés" as analyzing3 {
+                state "3. lépés folyamatban" as got3inputs: Bemenetek mutatása
+                state "3. lépés kész" as got3outputs: Kimenetek mutatása
+                state "Folyamat megszakadt a 3. lépésnél" as got3error #FFCCCB: Hiba mutatása
+            
+                [*] -[dotted]> got3inputs: 🖧
+                got3inputs -[dotted]> got3outputs: 🖧
+                got3outputs -[dotted]> [*]: 🖧
+                got3inputs -[dotted]-> got3error: 🖧
+            }
+                
+            [*] -[dotted]-> analyzing1: 🖧
+            analyzing1 -[dotted]-> analyzing2: 🖧
+            analyzing2 -[dotted]-> analyzing3: 🖧
+            analyzing3 -[dotted]-> [*]: 🖧
+        }
+        
+        state "Megszakadt a kapcsolat" as wsError #FFCCCB
+        
+        [*] -[dotted]-> connected
+        'connected -[dotted]-> [*]: 🖧
+        connected -[dotted]-> wsError: 🖧
+    }
+
+    fileUnknown -[dotted]-> fileKnownAndAnalyzing: Fájlnév bekérése\nfelugró ablakban
+    [*] -[dotted]-> fileKnownAndAnalyzing
+
+    ||
+
+    state "Fázis ismeretlen" as phaseUnknown #lightBlue
+    state "Fázis kiválasztva" as phaseSelected #lightBlue: ""load"" / ""clean"" / stb...
+    state "Fázis és szekció kiválasztva" as sectionSelected #lightBlue: bemenet / kimenet (alsó vagy felső)
+
+    [*] -[dotted]> phaseUnknown
+    phaseUnknown -[hidden]-> phaseSelected
+    phaseSelected --> sectionSelected: Fül lenyitása
+    
+    phaseUnknown ---> sectionSelected: Fül lenyitása
+
+    phaseUnknown -[dashed]--> sectionSelected: Koordináták kiválasztása
+
+    ||
+    
+    state "Képkimenet ismeretlen" as outputUnknown #lightBlue
+    state "Képkimenet kiválasztva" as outputSelected #lightBlue: DsRed / GFP / DAPI / ...
+    
+    [*] -[dotted]> outputUnknown
+    outputUnknown --> outputSelected: Fül lenyitása
+
+    outputUnknown -[dashed]--> outputSelected: Koordináták kiválasztása
+    outputSelected -[dashed]--> outputUnknown: Koordináták törlése
+
+    --
+
+    state "Célkereszt az egérnél" as hover {
+        state "Kép teljes méretben" as zoomUnknown #lightBlue
+        state "Kép nagyítva" as zoomSelected #lightBlue
+
+        [*] -[dotted]> zoomUnknown
+        zoomUnknown -> zoomSelected: Görgetés
+        zoomSelected -> zoomSelected: Görgetés
+
+        --
+
+        state "Kép a keretben" as movedUnknown
+        state "Kép elmozgatva" as movedSelected
+
+        [*] -[dotted]> movedUnknown
+        movedUnknown -> movedSelected: Arrébbhúzás
+        movedSelected -> movedSelected: Arrébbhúzás
+
+        --
+
+        state "Koordináták törölve" as coordinatesUnknown #lightBlue
+        state spacePressed <<choice>>
+        state "Koordináták kiválasztva" as coordinatesSelected #lightBlue
+
+        [*] -r-> coordinatesUnknown
+        coordinatesUnknown --> coordinatesSelected: "space"
+        coordinatesSelected -r-> spacePressed: "space"
+        spacePressed -l-> coordinatesSelected: random helyen
+        spacePressed -l-> coordinatesUnknown: ugyanott mint\naz előbb
+
+        --
+
+        state "Vörös csatorna beállítva" as redSelected
+        [*] -> redSelected: "r"
+        redSelected -> redSelected: "r"
+
+        --
+
+        state "Zöld csatorna beállítva" as greenSelected
+        [*] -> greenSelected: "g"
+        greenSelected -> greenSelected: "g"
+
+        --
+
+        state "Kék csatorna beállítva" as lightBlueSelected
+        [*] -> lightBlueSelected: "b"
+        lightBlueSelected -> lightBlueSelected: "b"
+
+        --
+
+        state "RGB előnézet becsukva" as compositePreviewCollapsed
+        state "RGB előnézet kinyitva" as compositePreviewOpen
+        
+        [*] -[dotted]> compositePreviewCollapsed
+        compositePreviewCollapsed -> compositePreviewOpen: Fül lenyitása
+        compositePreviewOpen -> compositePreviewCollapsed: Fül becsukása
+        compositePreviewCollapsed -[dashed]> compositePreviewOpen: "r" | "g" | "b"
+        
+        --
+        
+        state "Vörös csatorna látható" as redVisible
+        state "Vörös csatorna nem látható" as redInvisible
+        
+        [*] -[dotted]> redVisible
+        redVisible -> redInvisible: "shift" + "R"
+        redInvisible -> redVisible: "shift" + "R"
+    
+        --
+        
+        state "Zöld csatorna látható" as greenVisible
+        state "Zöld csatorna nem látható" as greenInvisible
+        
+        [*] -[dotted]> greenVisible
+        greenVisible -> greenInvisible: "shift" + "G"
+        greenInvisible -> greenVisible: "shift" + "G"
+    
+        --
+        
+        state "Kék csatorna látható" as lightBlueVisible
+        state "Kék csatorna nem látható" as lightBlueInvisible
+        
+        [*] -[dotted]> lightBlueVisible
+        lightBlueVisible -> lightBlueInvisible: "shift" + "B"
+        lightBlueInvisible -> lightBlueVisible: "shift" + "B"
+    }
+
+    state "Célkereszt a kiválasztott helyen" as noHover
+
+    noHover --> hover: Rávisszük az\negeret egy képre
+    hover --> noHover: Levisszük az egeret a képről
+}
+
+state "Több kép analizálása" as analyzeAll {
+    state "1. találat analizálása" as a1
+    state "2. találat analizálása" as a2
+    state "3. találat analizálása" as a3
+    a1 --> a2
+    a2 --> a3
+}
+
+list -> analyzeAll: Gombra\nkattintunk
+
+@enduml

@@ -1,0 +1,101 @@
+@startuml
+
+state "Analizálás" as analyze #lightBlue {
+    state "Fázis ismeretlen" as phaseUnknown #lightBlue
+    state "Fázis kiválasztva" as phaseSelected #lightBlue: ""load"" / ""clean"" / stb...
+    state "Fázis és szekció kiválasztva" as sectionSelected #lightBlue: bemenet / kimenet (alsó vagy felső)
+
+    [*] -[dotted]> phaseUnknown
+    phaseUnknown -[hidden]-> phaseSelected
+    phaseSelected --> sectionSelected: Fül lenyitása
+    
+    phaseUnknown ---> sectionSelected: Fül lenyitása
+
+    phaseUnknown -[dashed]--> sectionSelected: Koordináták kiválasztása
+
+    ||
+    
+    state "Képkimenet ismeretlen" as outputUnknown #lightBlue
+    state "Képkimenet kiválasztva" as outputSelected #lightBlue: DsRed / GFP / DAPI / ...
+    
+    [*] -[dotted]> outputUnknown
+    outputUnknown --> outputSelected: Fül lenyitása
+
+    outputUnknown -[dashed]--> outputSelected: Koordináták kiválasztása
+    outputSelected -[dashed]--> outputUnknown: Koordináták törlése
+
+    --
+
+    state "Célkereszt az egérnél" as hover {
+        state "Kép teljes méretben" as zoomUnknown #lightBlue
+        state "Kép nagyítva" as zoomSelected #lightBlue
+
+        [*] -[dotted]> zoomUnknown
+        zoomUnknown -> zoomSelected: Görgetés
+        zoomSelected -> zoomSelected: Görgetés
+
+        --
+
+        state "Kép a keretben" as movedUnknown
+        state "Kép elmozgatva" as movedSelected
+
+        [*] -[dotted]> movedUnknown
+        movedUnknown -> movedSelected: Arrébbhúzás
+        movedSelected -> movedSelected: Arrébbhúzás
+
+        --
+
+        state "Koordináták törölve" as coordinatesUnknown #lightBlue
+        state spacePressed <<choice>>
+        state "Koordináták kiválasztva" as coordinatesSelected #lightBlue
+
+        [*] -r-> coordinatesUnknown
+        coordinatesUnknown --> coordinatesSelected: "space"
+        coordinatesSelected -r-> spacePressed: "space"
+        spacePressed -l-> coordinatesSelected: random helyen
+        spacePressed -l-> coordinatesUnknown: ugyanott mint\naz előbb
+
+        --
+
+        state "Vörös csatorna beállítva" as redSelected#lightBlue
+        state "Vörös csatorna elrejtve" as redUnselected#lightBlue
+        [*] -> redUnselected
+        redSelected -> redSelected: "r"
+        redSelected <-r- redUnselected: "r"
+        redSelected -> redUnselected: shift + "R"
+
+        --
+
+        state "Zöld csatorna beállítva" as greenSelected#lightBlue
+        state "Zöld csatorna elrejtve" as greenUnselected#lightBlue
+        [*] -> greenUnselected
+        greenSelected -> greenSelected: "g"
+        greenSelected <-r- greenUnselected: "g"
+        greenSelected -> greenUnselected: shift + "G"
+
+        --
+
+        state "Kék csatorna beállítva" as lightBlueSelected#lightBlue
+        state "Kék csatorna elrejtve" as lightBlueUnselected#lightBlue
+        [*] -> lightBlueUnselected
+        lightBlueSelected -> lightBlueSelected: "b"
+        lightBlueSelected <-r- lightBlueUnselected: "b"
+        lightBlueSelected -> lightBlueUnselected: shift + "B"
+
+        --
+
+        state "RGB előnézet becsukva" as compositePreviewCollapsed
+        state "RGB előnézet kinyitva" as compositePreviewOpen
+        
+        [*] -[dotted]> compositePreviewCollapsed
+        compositePreviewCollapsed -> compositePreviewOpen: Fül lenyitása
+        compositePreviewOpen -> compositePreviewCollapsed: Fül becsukása
+        compositePreviewCollapsed -[dashed]> compositePreviewOpen: "r" | "g" | "b"
+    }
+
+    state "Célkereszt a kiválasztott helyen" as noHover
+
+    noHover --> hover: Rávisszük az\negeret egy képre
+    hover --> noHover: Levisszük az egeret a képről
+}
+@enduml

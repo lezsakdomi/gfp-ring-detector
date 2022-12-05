@@ -1,0 +1,27 @@
+@startuml
+
+start
+
+repeat
+    :Mappaválasztás;
+    if (Van már dataset.toml fájl?) then (létezik)
+        break
+    else (még nincs)
+    endif
+    :Új fájl létrehozása felugró-ablakkal;
+repeat while (dataset.toml elmentve?) is ("Mégsem") not ("Ok")
+
+:Böngésző megnyitása;
+:Szerver elindítása;
+
+fork
+    #lightGreen:Szerver fut és elérhető böngészőből|
+fork again
+    while (konzolos ablak nyitva van?)
+    endwhile (bezártuk az ablakot)
+    #gray:Szerver leállítása;
+end merge
+
+stop
+
+@enduml
