@@ -542,4 +542,4 @@ if __name__ == '__main__':
     generate_figure(df).write_html(os.path.join(output_folder, 'stats.html'))
 
     app = get_app()
-    app.run_server(debug=True)
+    app.run_server(debug=False)

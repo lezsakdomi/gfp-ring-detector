@@ -82,6 +82,7 @@ class Target:
     def chread(self, c):
         import numpy as np
         from skimage.io import imread
+        from skimage.util import img_as_ubyte
         img = imread(self.fname(c))
         if len(img.shape) == 3 and img.shape[0] == 2 \
                 and np.sum(np.abs(img[1, :, :] - img[0, :, :])) == 0:

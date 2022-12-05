@@ -1,6 +1,6 @@
-#!/bin/zsh
-find 'képek/' -name 'stats.txt' -delete
-folders="$(find 'képek/' -name '*_Files' -type d)"
+#!/bin/bash
+find 'test-images/' -name 'stats.txt' -delete
+folders="$(find 'test-images/' -name '*_Files' -type d)"
 count=$(echo "$folders" | wc -l)
 
 main(){

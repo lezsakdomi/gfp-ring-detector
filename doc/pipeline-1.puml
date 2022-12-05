@@ -1,0 +1,70 @@
+@startuml
+'!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+'!theme black-knight
+'!include theme-light.puml
+
+skinparam card {
+    BackgroundColor #babbd1
+    FontStyle bold
+    BorderColor #000359
+    Shadowing true
+}
+
+!pragma useVerticalIf on
+
+start;
+
+card "\t\t\t""load"" step" {
+split
+':DsRed := read(channel=options.channels['DsRed'])<
+:DsRed<
+:normalize(&DsRed)]
+split again
+':GFP := read(channel=options.channels['GFP'])<
+:GFP<
+:normalize(&GFP)]
+split again
+':DAPI := read(channel=options.channels['DAPI'])<
+:DAPI<
+:normalize(&DAPI)]
+end split
+}
+
+card "\t\t\t""clean"" step" {
+split
+
+split
+:gaussian_blur(&DsRed, σ=1)]
+split again
+:gaussian_blur(&DAPI, σ=5)]
+end split
+
+:mask := new empty binary mask]
+:mask[where DAPI ≤ 20% ∧ DsRed > 20%] := TRUE]
+
+split again
+
+:gaussian_blur(&GFP, σ=1)]
+:GFP := GFP - minimum_convolution(
+                             GFP, kernel=disk(r=30px))]
+
+
+end split
+
+split
+:DsRed[where mask = FALSE] := 0]
+split again
+:GFP[where mask = FALSE] := 0]
+end split
+}
+
+card "\t\t\t""diff"" step" {
+:diff := GFP - DsRed]
+:diff_abs := abs(diff)]
+}
+
+card "\t\t    ""sum"" step" {
+:sum := mean(GFP, DsRed)]
+}
+label sp
+@enduml

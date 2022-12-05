@@ -1,0 +1,57 @@
+@startuml
+'!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+'!theme black-knight
+'!include theme-light.puml
+
+skinparam card {
+    BackgroundColor #babbd1
+    FontStyle bold
+    BorderColor #000359
+    Shadowing true
+}
+
+!pragma useVerticalIf on
+
+label sp
+
+card "\t\t\t\t\t\t\t\t\t\t\t\t""find_granule_centers"" step" {
+:all_coordinates := find_blobs(sum, method=DoG, σ=7..10)]
+note: allow overlapping blobs
+note: store both coordinates\nand approximate radius
+:filter(&all_coordinates, scale_space_maxima ≥ 0.01)]
+}
+
+card "\t\t\t\t\t\t    ""analyze_coordinates"" step" {
+:neutral_coordinates, positive_coordinates, negative_coordinates := new empty array
+    with max capacity of length(all_coordinates)]
+:i := 0]
+while (i < length(all_coordinates))
+:value := mean(GFP in the circle with center and radius from all_coordinates[i])]
+if (value < 0.1) is (      yes) then
+:append(&negative_coordinates, all_coordinates[i])]
+elseif (0.1 ≤ value < 0.25) then (yes)
+:append(&neutral_coordinates, all_coordinates[i])]
+elseif (0.25 ≤ value) then (    yes)
+:append(&positive_coordinates, all_coordinates[i])]
+endif
+end while
+}
+
+card "\t\t\t""count"" step" {
+:all, neutral, negative, positive := length(
+  all_coordinates, neutral_coordinates,
+  negative_coordinates, positive_coordinates)]
+skinparam defaultTextAlignment left
+:stats := [
+    Analysis date: now
+    Count: all
+    Positive: positive
+    Negative: negative
+    Invalid: all - positive - negative - neutral
+    Dropped: ratio( (all - (neutral+negative)) / all )
+    Negative ratio: ratio(negative / (neutral+negative))
+] >
+}
+
+stop
+@enduml
