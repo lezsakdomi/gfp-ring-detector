@@ -1,0 +1,50 @@
+@startuml
+!include https://raw.githubusercontent.com/ptrkcsk/one-dark-plantuml-theme/v1.0.0/theme.puml
+
+'split
+'    -[hidden]->
+    start
+    :Böngészőből megnyitunk egy lapot<
+    :Webes felület elküldése a böngészőnek>
+    note: Lásd ""website-pages.puml""
+    stop
+
+
+'-[hidden]->
+
+'split again
+'    -[hidden]->
+    start
+    :A webes felület felcsatlakozik a szerverre<
+    switch (Mi a feladat?)
+    case (Fájlok listázása)
+        repeat
+            :Következő //*.tif_Files// mappa megkeresése;
+            :Mappa nevének elküldése>
+            if (Van benne ""composite.jpg""?) then (van)
+                :""composite.jpg"" elküldése>
+                note: Színes, RGB kép\n(előnézet)
+            endif
+            if (Van benne ""stats.txt""?) then (van)
+                :""stats.txt"" elküldése>
+                note: Előre elkészített analízis
+            endif
+        repeat while (Van még feldolgozandó mappa?) is (van)
+        stop
+    case (Analizálás)
+        :Felvétel mappájának bekérése<
+        fork
+            :Pipeline végrehajtása|
+
+        fork again
+            while (Nyitva van a weboldal?) is (nyitva)
+                :Parancsra várakozás<
+                :Parancs feldolgozása
+                Lásd ""analyze-commands.puml""|
+            endwhile (bezártuk az oldalt)
+        endfork
+        stop
+    endswitch
+'end split
+
+@enduml
